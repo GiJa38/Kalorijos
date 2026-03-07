@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="lt">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kalorijų Skaičiuoklė</title>
+
+    <!-- Google Fonts: Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Material Icons -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="background-blobs">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+        <div class="blob blob-3"></div>
+    </div>
+
+    <div class="app-container glass">
+
+        <!-- Header -->
+        <header class="app-header">
+            <h1>Kalorijos</h1>
+            <div class="date-display" id="currentDate"></div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="app-content">
+
+            <!-- VIEW: SUMMARY -->
+            <section id="view-summary" class="view-section active">
+                <h2 class="section-title">Dienos Suvestinė</h2>
+
+                <div class="progress-container" style="margin-bottom: 20px;">
+                    <div class="circular-progress">
+                        <div class="progress-value">
+                            <span id="caloriesRemaining">0</span>
+                            <small>Liko kcal</small>
+                        </div>
+                    </div>
+                    <div class="text-center"
+                        style="font-size: 14px; color: var(--text-muted); margin-top: -15px; margin-bottom: 15px;">
+                        <div style="margin-bottom: 4px;">
+                            Bazinė norma <em>(su tikslu)</em>: <strong id="summaryBaseGoal"
+                                style="color: var(--text-main);">0</strong> kcal
+                            <span id="summaryBonus" style="color: var(--success); display: none;">
+                                + <span id="summaryBonusValue">0</span> kcal aktyvumas
+                            </span>
+                        </div>
+                        <div style="font-size: 12px; opacity: 0.7;">
+                            Svorio palaikymui: <span id="summaryMaintenanceGoal">0</span> kcal
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-card row text-center" style="margin-bottom: 20px; padding: 15px;">
+                    <div class="col" style="border-right: 1px solid var(--glass-border);">
+                        <div style="font-size: 12px; color: var(--text-muted)">Suvartota (Maistas)</div>
+                        <strong id="caloriesConsumed" style="font-size: 20px; color: var(--primary);">0</strong>
+                        <small>kcal</small>
+                    </div>
+                    <div class="col">
+                        <div style="font-size: 12px; color: var(--text-muted)">Sudeginta (Treniruotė)</div>
+                        <strong id="caloriesBurnedTotal" style="font-size: 20px; color: var(--success);">0</strong>
+                        <small>kcal</small>
+                    </div>
+                </div>
+
+                <div class="macros-container">
+                    <div class="macro-card glass-card">
+                        <div class="macro-header">Baltymų</div>
+                        <div class="macro-value"><span id="proteinEaten">0</span> / <span id="proteinGoal">0</span>g
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill protein-fill" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <div class="macro-card glass-card">
+                        <div class="macro-header">Riebalų</div>
+                        <div class="macro-value"><span id="fatEaten">0</span> / <span id="fatGoal">0</span>g</div>
+                        <div class="progress-bar">
+                            <div class="progress-fill fat-fill" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <div class="macro-card glass-card">
+                        <div class="macro-header">Angliavandenių</div>
+                        <div class="macro-value"><span id="carbsEaten">0</span> / <span id="carbsGoal">0</span>g</div>
+                        <div class="progress-bar">
+                            <div class="progress-fill carbs-fill" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="recent-meals glass-card mt-20">
+                    <h3>Šiandien suvalgyta</h3>
+                    <ul id="todayMealsList" class="meal-list">
+                        <li class="empty-state">Dar nieko nesuvalgėte.</li>
+                    </ul>
+                </div>
+
+                <div class="steps-card glass-card mt-20">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <h3 style="margin: 0;">Treniruotėje sudeginta</h3>
+                        <span class="material-icons-round"
+                            style="color:var(--primary); font-size: 28px;">fitness_center</span>
+                    </div>
+                    <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 15px;">
+                        <div style="flex:1;">
+                            <input type="number" id="todayTraining" placeholder="Įveskite kcal" min="0"
+                                style="margin-bottom:0;">
+                        </div>
+                        <button class="btn btn-primary" onclick="app.updateTrainingKcal()"
+                            style="padding: 0 20px;">Išsaugoti</button>
+                    </div>
+                    <div
+                        style="font-size: 14px; text-align: center; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px;">
+                        Papildomai sudeginta: <strong id="burnedKcal"
+                            style="color: var(--success); font-size: 18px;">0</strong> kcal<br>
+                        <small style="color: var(--text-muted)">(Sudegintos kalorijos gali būti pridedamos prie dienos
+                            limito)</small>
+                    </div>
+                </div>
+            </section>
+
+            <!-- VIEW: FOOD LIST -->
+            <section id="view-foods" class="view-section hidden">
+                <h2 class="section-title">Mano Produktai</h2>
+                <div class="row">
+                    <div class="col">
+                        <button class="btn btn-primary w-100" onclick="app.showModal('addProductModal')">
+                            <span class="material-icons-round">add</span> Kurti
+                        </button>
+                    </div>
+                    <div class="col">
+                        <button class="btn btn-primary w-100" style="background:var(--success)"
+                            onclick="app.showModal('searchOnlineModal')">
+                            <span class="material-icons-round">travel_explore</span> Ieškoti
+                        </button>
+                    </div>
+                </div>
+                <div class="search-bar mt-10">
+                    <span class="material-icons-round">search</span>
+                    <input type="text" id="foodSearch" placeholder="Ieškoti savo produktuose...">
+                </div>
+                <ul id="foodsList" class="item-list mt-10">
+                    <!-- Produktai bus sugeneruoti per JS -->
+                </ul>
+            </section>
+
+            <!-- VIEW: MEALS & RECIPES -->
+            <section id="view-meals" class="view-section hidden">
+                <h2 class="section-title">Patiekalai (Receptai)</h2>
+                <button class="btn btn-primary w-100" onclick="app.showModal('addMealModal')">
+                    <span class="material-icons-round">outdoor_grill</span> Kurti naują patiekalą
+                </button>
+                <ul id="mealsList" class="item-list mt-10">
+                    <!-- Patiekalai bus sugeneruoti per JS -->
+                </ul>
+            </section>
+
+            <!-- VIEW: HISTORY / PROGRESS -->
+            <section id="view-history" class="view-section hidden">
+                <h2 class="section-title">Istorija ir Progresas</h2>
+
+                <div class="glass-card mt-10" style="margin-bottom: 20px;">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h3 style="font-size: 16px; margin: 0;">Fiksuoti šiandienos svorį</h3>
+                        <span class="material-icons-round" style="color:var(--primary);">scale</span>
+                    </div>
+                    <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 15px;">
+                        Išsaugotas dabartinis svoris: <strong id="currentWeightDisplay"
+                            style="color: var(--text-main); font-size: 14px;">0</strong> kg
+                    </div>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <input type="number" id="historyWeightInput" placeholder="pvz. 75.5" min="30" step="0.1"
+                            style="flex: 1; margin: 0;">
+                        <span style="color: var(--text-muted); font-size: 14px;">kg</span>
+                        <button class="btn btn-primary" onclick="app.saveWeightHistory()"
+                            style="padding: 10px 15px;">Išsaugoti</button>
+                    </div>
+                    <div id="weightDiffMessage"
+                        style="margin-top: 10px; font-size: 14px; text-align: center; display: none; padding: 10px; border-radius: 8px; background: rgba(0,0,0,0.2);">
+                    </div>
+                </div>
+
+                <!-- Savaitės Balansas -->
+                <div class="glass-card mt-20 text-center" style="margin-bottom: 20px;">
+                    <div
+                        style="display: flex; justify-content: center; align-items: center; gap: 8px; margin-bottom: 5px;">
+                        <span class="material-icons-round"
+                            style="color:var(--primary); font-size: 20px;">date_range</span>
+                        <h3 style="font-size: 16px; margin: 0;">Šios savaitės balansas</h3>
+                    </div>
+                    <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 15px;">Visi sudegintų ir
+                        suvartotų kalorijų skirtumai bendrai sudėjus.</div>
+
+                    <strong id="weeklyBalance" style="font-size: 32px; font-weight: 700;">0</strong>
+                </div>
+
+                <!-- Grafikas -->
+                <div class="glass-card mt-20" style="margin-bottom: 20px; padding: 15px 10px;">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding: 0 5px;">
+                        <h3 style="font-size: 14px; color: var(--text-muted); margin: 0;">Kalorijų ir Svorio Grafikas
+                        </h3>
+                        <div style="display: flex; gap: 5px;">
+                            <button class="btn btn-sm timeframe-btn active" id="tf-7"
+                                onclick="app.setHistoryTimeframe(7)">7 d.</button>
+                            <button class="btn btn-sm timeframe-btn" id="tf-14" onclick="app.setHistoryTimeframe(14)">14
+                                d.</button>
+                            <button class="btn btn-sm timeframe-btn" id="tf-30" onclick="app.setHistoryTimeframe(30)">30
+                                d.</button>
+                        </div>
+                    </div>
+                    <div style="position: relative; height: 250px; width: 100%;">
+                        <canvas id="historyChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="glass-card mt-20 text-center" style="margin-bottom: 20px;">
+                    <h3 style="font-size: 14px; color: var(--text-muted); margin-bottom: 10px;">Vidurkis (<span
+                            id="avgDaysText">7</span> dienų)</h3>
+                    <div class="row">
+                        <div class="col">
+                            <strong id="avg7dKcal" style="font-size: 24px; color: var(--primary);">0</strong>
+                            <div style="font-size: 12px; color: var(--text-muted);">Kcal / dieną</div>
+                        </div>
+                        <div class="col">
+                            <strong id="avg7dTraining" style="font-size: 24px; color: var(--success);">0</strong>
+                            <div style="font-size: 12px; color: var(--text-muted);">Treniruočių Kcal / dieną</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- AI Patarėjas / Savaitės Įžvalgos -->
+                <div class="glass-card mt-20" style="margin-bottom: 20px;">
+                    <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 15px;">
+                        <span class="material-icons-round"
+                            style="color:var(--primary); font-size: 20px;">psychology</span>
+                        <h3 style="font-size: 16px; margin: 0;">Savaitės Įžvalgos (AI Patarėjas)</h3>
+                    </div>
+                    <ul id="weeklyInsightsList" class="item-list" style="margin-top: 10px;">
+                        <li class="empty-state">Dar nėra pakankamai duomenų analizėms.</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- VIEW: PROFILE -->
+            <section id="view-profile" class="view-section hidden">
+                <h2 class="section-title">Mano Profilis</h2>
+                <div class="glass-card form-container">
+                    <form id="profileForm">
+                        <div class="form-group">
+                            <label>Lytis</label>
+                            <select id="gender" required>
+                                <option value="male">Vyras</option>
+                                <option value="female">Moteris</option>
+                            </select>
+                        </div>
+                        <div class="form-group row">
+                            <div class="col">
+                                <label>Amžius</label>
+                                <input type="number" id="age" required min="10" max="120">
+                            </div>
+                            <div class="col">
+                                <label>Ūgis (cm)</label>
+                                <input type="number" id="height" required min="100" max="250">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Svoris (kg)</label>
+                            <input type="number" id="weight" required step="0.1" min="30" max="300">
+                        </div>
+                        <div class="form-group">
+                            <label>Dienos judėjimas (be sporto)</label>
+                            <select id="activity" required>
+                                <option value="1.2">Iki 5 000 žingsnių (visiškai sėdimas)</option>
+                                <option value="1.375">5 000 - 8 000 žingsnių (lengvai judantis)</option>
+                                <option value="1.55">8 000 - 12 000 žingsnių (vidutiniškai judantis)</option>
+                                <option value="1.725">12 000 - 15 000 žingsnių (labai judantis / stovimas darbas)
+                                </option>
+                                <option value="1.9">Virš 15 000 žingsnių (sunkus fizinis darbas)</option>
+                            </select>
+                        </div>
+                        <div class="form-group row">
+                            <div class="col" style="flex: 1;">
+                                <label>Tikslas</label>
+                                <select id="goal" required>
+                                    <option value="-500">Mesti svorį (-500 kcal)</option>
+                                    <option value="0">Palaikyti svorį</option>
+                                    <option value="300">Priaugti raumenų (+300 kcal)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Ką daryti su papildomai sudegintomis kalorijomis iš žingsnių?</label>
+                            <select id="eatBackCalories" required>
+                                <option value="false">Nieko (laikyti didesnį deficitą)</option>
+                                <option value="true">Pridėti prie dienos normos (galėsiu daugiau suvalgyti)</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">Išsaugoti ir Skaičiuoti</button>
+                    </form>
+                </div>
+
+                <div class="glass-card mt-20 text-center">
+                    <h3>Jūsų Dienos Norma</h3>
+                    <div class="big-calorie-goal"><span id="profileTDEE">0</span> kcal</div>
+                </div>
+
+                <div class="glass-card mt-20 text-center" style="border: 1px solid rgba(248, 81, 73, 0.3);">
+                    <h3 style="color: var(--danger); font-size: 14px; margin-bottom: 10px;">Pavojaus Zona</h3>
+                    <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 15px;">Šis veiksmas ištrins visą
+                        jūsų istoriją, pridėtus produktus ir patiekalus iš jūsų įrenginio. Atstatyti nebus galima.</p>
+                    <button class="btn btn-primary w-100" style="background: var(--danger);"
+                        onclick="app.resetApp()">Ištrinti ir atstatyti programėlę</button>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- Bottom Navigation -->
+        <nav class="bottom-nav">
+            <button class="nav-item active" data-target="view-summary">
+                <span class="material-icons-round">dashboard</span>
+                <span>Suvestinė</span>
+            </button>
+            <button class="nav-item" data-target="view-foods">
+                <span class="material-icons-round">kitchen</span>
+                <span>Produktai</span>
+            </button>
+            <button class="nav-item" data-target="view-meals">
+                <span class="material-icons-round">restaurant_menu</span>
+                <span>Patiekalai</span>
+            </button>
+            <button class="nav-item" data-target="view-profile">
+                <span class="material-icons-round">person</span>
+                <span>Profilis</span>
+            </button>
+            <button class="nav-item" data-target="view-history">
+                <span class="material-icons-round">timeline</span>
+                <span>Progresas</span>
+            </button>
+        </nav>
+
+    </div>
+
+    <!-- Modals (Hidden by default) -->
+    <div id="addProductModal" class="modal">
+        <div class="modal-content glass">
+            <div class="modal-header">
+                <h2>Naujas Produktas</h2>
+                <button class="icon-btn" onclick="app.closeModal('addProductModal')"><span
+                        class="material-icons-round">close</span></button>
+            </div>
+            <form id="addProductForm">
+                <div class="form-group">
+                    <label>Pavadinimas</label>
+                    <input type="text" id="newFoodName" required>
+                </div>
+                <p class="form-hint">Maistinė vertė 100g produkto:</p>
+                <div class="form-group row">
+                    <div class="col">
+                        <label>Kcal</label>
+                        <input type="number" id="newFoodKcal" required min="0" step="1">
+                    </div>
+                    <div class="col">
+                        <label>Baltymai (g)</label>
+                        <input type="number" id="newFoodProtein" required min="0" step="0.1">
+                    </div>
+                </div>
+                <div class="form-group row">
+                    <div class="col">
+                        <label>Riebalai (g)</label>
+                        <input type="number" id="newFoodFat" required min="0" step="0.1">
+                    </div>
+                    <div class="col">
+                        <label>Angliavandeniai (g)</label>
+                        <input type="number" id="newFoodCarbs" required min="0" step="0.1">
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary w-100 mt-10">Išsaugoti produktą</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Meal Modal -->
+    <div id="addMealModal" class="modal">
+        <div class="modal-content glass" style="max-height: 90vh; overflow-y: auto;">
+            <div class="modal-header">
+                <h2>Kurti Patiekalą</h2>
+                <button class="icon-btn" onclick="app.closeModal('addMealModal')"><span
+                        class="material-icons-round">close</span></button>
+            </div>
+            <form id="addMealForm">
+                <div class="form-group">
+                    <label>Patiekalo Pavadinimas (pvz. Vištienos troškinys)</label>
+                    <input type="text" id="mealName" required>
+                </div>
+
+                <div class="glass-card mt-10" style="padding: 10px;">
+                    <h3 style="font-size: 16px; margin-bottom: 10px;">Ingredientai</h3>
+                    <ul id="mealIngredientsList" class="item-list" style="margin-bottom: 10px;">
+                        <li class="empty-state" style="padding: 5px; font-size: 12px;">Kol kas ingredientų nėra.</li>
+                    </ul>
+
+                    <div class="form-group row" style="margin-bottom: 0;">
+                        <div class="col" style="flex: 2;">
+                            <select id="ingredientSelect">
+                                <option value="">- Pasirinkti -</option>
+                            </select>
+                        </div>
+                        <div class="col" style="display: flex; gap: 5px;">
+                            <input type="number" id="ingredientWeight" placeholder="g" min="0.1" step="0.1"
+                                style="width: 70px;">
+                            <select id="ingredientUnit" style="width: 70px; padding: 0 5px; font-size: 14px;">
+                                <option value="1">g</option>
+                                <option value="1">ml</option>
+                                <option value="5">a.š.</option>
+                                <option value="15">v.š.</option>
+                                <option value="250">stikl.</option>
+                            </select>
+                        </div>
+                        <button type="button" class="btn btn-primary" style="padding: 0 12px;"
+                            onclick="app.addIngredientToMeal()">
+                            <span class="material-icons-round">add</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="glass-card mt-20">
+                    <div class="row text-center">
+                        <div class="col">
+                            <div style="font-size:12px; color:var(--text-muted)">Puodo svoris</div>
+                            <strong id="mealTotalWeight">0</strong>g
+                        </div>
+                        <div class="col">
+                            <div style="font-size:12px; color:var(--text-muted)">Iš viso Kcal</div>
+                            <strong id="mealTotalKcal">0</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary w-100 mt-20" id="saveMealBtn" disabled>Išsaugoti
+                    patiekalą</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Consume Modal -->
+    <div id="consumeModal" class="modal">
+        <div class="modal-content glass">
+            <div class="modal-header">
+                <h2>Suvalgysiu: <span id="consumeModalTitle" style="color: var(--primary)"></span></h2>
+                <button class="icon-btn" onclick="app.closeModal('consumeModal')"><span
+                        class="material-icons-round">close</span></button>
+            </div>
+            <form id="consumeForm">
+                <input type="hidden" id="consumeItemId">
+                <input type="hidden" id="consumeItemType"> <!-- 'food' or 'meal' -->
+
+                <div class="form-group">
+                    <label>Kiek suvalgėte?</label>
+                    <div class="row">
+                        <div class="col" style="flex: 2;">
+                            <input type="number" id="consumeWeight" required min="0.1" step="0.1"
+                                placeholder="Pvz. 0.5 arba 200">
+                        </div>
+                        <div class="col">
+                            <select id="consumeUnit">
+                                <option value="1">Gramai (g)</option>
+                                <option value="1">Mililitrai (ml)</option>
+                                <option value="5">Arb. šaukšteliai (a.š.)</option>
+                                <option value="15">Valg. šaukštai (v.š.)</option>
+                                <option value="250">Stiklinės</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-card mt-10 text-center">
+                    <div style="font-size:12px; color:var(--text-muted)">Gausite kalorijų</div>
+                    <strong id="consumeCalcKcal" style="font-size: 28px; color: var(--primary);">0</strong>
+                </div>
+
+                <button type="submit" class="btn btn-primary w-100 mt-20">
+                    <span class="material-icons-round">check_circle</span> Pridėti į suvestinę
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Online Search Modal -->
+    <div id="searchOnlineModal" class="modal">
+        <div class="modal-content glass" style="max-height: 90vh; display: flex; flex-direction: column;">
+            <div class="modal-header">
+                <h2>Ieškoti internetinėje bazėje</h2>
+                <button class="icon-btn" onclick="app.closeModal('searchOnlineModal')"><span
+                        class="material-icons-round">close</span></button>
+            </div>
+            <div class="search-bar" style="margin-bottom: 20px;">
+                <span class="material-icons-round">travel_explore</span>
+                <input type="text" id="onlineSearchInput" placeholder="Pvz., Pienas, Vištiena..."
+                    style="border:none; padding-left:10px;">
+            </div>
+            <button class="btn btn-primary w-100" id="onlineSearchBtn">Ieškoti (OpenFoodFacts API)</button>
+
+            <div id="onlineLoader" class="text-center mt-20 hidden" style="color:var(--primary); font-size: 14px;">
+                <span class="material-icons-round" style="animation: spin 2s linear infinite;">sync</span><br>
+                Jungiamasi prie pasaulinės duomenų bazės...
+            </div>
+
+            <ul id="onlineSearchResults" class="item-list mt-20" style="overflow-y: auto; flex:1">
+                <li class="empty-state">Įveskite produkto pavadinimą (lietuvški barkodai dažnai pildomi, bet geriau
+                    randa angliškus žodžius, pvz. "Avocado") ir spauskite mygtuką.</li>
+            </ul>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
