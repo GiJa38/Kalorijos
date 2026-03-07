@@ -6,6 +6,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Kalorijų Skaičiuoklė</title>
 
+    <!-- Mobile App Icons -->
+    <link rel="apple-touch-icon" href="icon.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="icon.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="icon.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#0d1117">
+
     <!-- Google Fonts: Outfit -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -319,6 +327,30 @@
                 <div class="glass-card mt-20 text-center">
                     <h3>Jūsų Dienos Norma</h3>
                     <div class="big-calorie-goal"><span id="profileTDEE">0</span> kcal</div>
+                </div>
+
+                <div class="glass-card mt-20 text-center">
+                    <h3>Duomenų Kopija</h3>
+                    <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 15px;">Atsisiųskite savo
+                        duomenis į telefoną atsarginei kopijai arba atkurkite prarastus duomenis iš anksčiau išsaugoto
+                        failo.</p>
+                    <div class="row" style="gap: 10px;">
+                        <div class="col">
+                            <button class="btn btn-primary w-100" style="font-size: 13px; padding: 10px;"
+                                onclick="app.exportData()">
+                                <span class="material-icons-round" style="font-size: 16px;">download</span> Atsisiųsti
+                            </button>
+                        </div>
+                        <div class="col">
+                            <button class="btn btn-primary w-100"
+                                style="font-size: 13px; padding: 10px; background: rgba(255, 255, 255, 0.1); color: var(--text-main)"
+                                onclick="document.getElementById('importFile').click()">
+                                <span class="material-icons-round" style="font-size: 16px;">upload</span> Įkelti
+                            </button>
+                            <input type="file" id="importFile" style="display: none;" accept=".json"
+                                onchange="app.importData(event)">
+                        </div>
+                    </div>
                 </div>
 
                 <div class="glass-card mt-20 text-center" style="border: 1px solid rgba(248, 81, 73, 0.3);">

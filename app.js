@@ -69,6 +69,44 @@ const app = {
         }
     },
 
+    exportData() {
+        const dataStr = localStorage.getItem('kalorijos_db');
+        if (!dataStr) return alert("Nerasta jokių duomenų išsaugojimui.");
+        const blob = new Blob([dataStr], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const dateStr = new Date().toISOString().split('T')[0];
+        a.download = `kalorijos_kopija_${dateStr}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    },
+
+    importData(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const importedData = JSON.parse(e.target.result);
+                if (importedData && importedData.profile) {
+                    if (confirm("Ar tikrai norite perrašyti dabartinius duomenis? Aplikacija bus perkrauta.")) {
+                        localStorage.setItem('kalorijos_db', JSON.stringify(importedData));
+                        window.location.reload();
+                    }
+                } else {
+                    alert("Neatpažintas failo formatas.");
+                }
+            } catch (err) {
+                alert("Klaida skaitant failą.");
+            }
+        };
+        reader.readAsText(file);
+        event.target.value = ''; // Reset input
+    },
+
     // --- DUOMENŲ SAUGOJIMAS IR UŽKROVIMAS ---
     saveData() {
         localStorage.setItem('kalorijos_db', JSON.stringify(this.data));
