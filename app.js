@@ -493,7 +493,7 @@ const app = {
                 <div>
                     <strong>${food.name}</strong>
                     <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
-                        100${food.unit || 'g'}: ${food.kcal} kcal | B: ${food.protein}g | R: ${food.fat}g | A: ${food.carbs}g
+                        ${food.unit === 'vnt' ? `1 vnt` : `100${food.unit || 'g'}`}: ${food.kcal} kcal | B: ${food.protein}g | R: ${food.fat}g | A: ${food.carbs}g
                     </div>
                 </div>
                 <div style="display: flex; gap: 5px;">
