@@ -418,11 +418,16 @@
                     <input type="text" id="newFoodName" required>
                 </div>
                 <div class="form-group">
-                    <label>Maistinė vertė (per 100 vienetų):</label>
-                    <select id="newFoodUnit" style="margin-bottom: 8px;">
+                    <label>Maistinė vertė:</label>
+                    <select id="newFoodUnit" style="margin-bottom: 8px;" onchange="app.onFoodUnitChange()">
                         <option value="g">100 g (kietas produktas)</option>
                         <option value="ml">100 ml (skystas produktas)</option>
+                        <option value="vnt">1 vnt (kiaušinis, kotletas ir pan.)</option>
                     </select>
+                </div>
+                <div class="form-group" id="weightPerUnitGroup" style="display: none;">
+                    <label>Svoris 1 vnt (g) – pasirinktinai</label>
+                    <input type="number" id="newFoodWeightPerUnit" min="0" step="1" placeholder="pvz. 60">
                 </div>
                 <div class="form-group row">
                     <div class="col">
@@ -484,6 +489,7 @@
                                 <option value="5">a.š.</option>
                                 <option value="15">v.š.</option>
                                 <option value="250">stikl.</option>
+                                <option value="vnt">vnt</option>
                             </select>
                         </div>
                         <button type="button" class="btn btn-primary" style="padding: 0 12px;"

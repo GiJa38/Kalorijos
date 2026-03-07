@@ -434,10 +434,12 @@ const app = {
         const form = document.getElementById('addProductForm');
         form.addEventListener('submit', (e) => {
             e.preventDefault();
+            const unit = document.getElementById('newFoodUnit')?.value || 'g';
             const newFood = {
                 id: Date.now() + Math.floor(Math.random() * 10000),
                 name: document.getElementById('newFoodName').value,
-                unit: document.getElementById('newFoodUnit')?.value || 'g',
+                unit: unit,
+                weightPerUnit: unit === 'vnt' ? (parseFloat(document.getElementById('newFoodWeightPerUnit').value) || 0) : 0,
                 kcal: parseFloat(document.getElementById('newFoodKcal').value),
                 protein: parseFloat(document.getElementById('newFoodProtein').value),
                 fat: parseFloat(document.getElementById('newFoodFat').value),
@@ -451,12 +453,21 @@ const app = {
             this.updateIngredientSelect();
             this.closeModal('addProductModal');
             form.reset();
+            // Slėpti weightPerUnit lauką po reset
+            const wpuGroup = document.getElementById('weightPerUnitGroup');
+            if (wpuGroup) wpuGroup.style.display = 'none';
         });
 
         // Search functionality
         document.getElementById('foodSearch').addEventListener('input', (e) => {
             this.renderFoodsList(e.target.value);
         });
+    },
+
+    onFoodUnitChange() {
+        const unit = document.getElementById('newFoodUnit')?.value;
+        const group = document.getElementById('weightPerUnitGroup');
+        if (group) group.style.display = (unit === 'vnt') ? 'block' : 'none';
     },
 
     renderFoodsList(filterText = '') {
@@ -607,35 +618,52 @@ const app = {
 
         const foodId = parseInt(select.value);
         const amount = parseFloat(weightInput.value);
-        const unitMultiplier = parseFloat(unitSelect.value);
+        const unitValue = unitSelect.value; // gali būti "vnt" arba skaičius
+        const isVnt = unitValue === 'vnt';
 
         if (!foodId || !amount || amount <= 0) {
             return alert('Pasirinkite produktą ir įveskite kiekį!');
         }
 
-        const weightInGrams = amount * unitMultiplier;
-
         const food = this.data.foods.find(f => f.id === foodId);
         if (!food) return;
 
-        // Skaičiuojame kiek gavosi iš pasirinkto svorio (proporcijos nuo 100g)
-        const ratio = weightInGrams / 100;
+        if (!isVnt) {
+            const unitMultiplierNum = parseFloat(unitValue) || 1;
+            const weightInGrams = amount * unitMultiplierNum;
+            const ratio = weightInGrams / 100;
+            const displayAmountStr = `${amount} ${unitSelect.options[unitSelect.selectedIndex].text}`;
 
-        let displayAmountStr = `${amount} ${unitSelect.options[unitSelect.selectedIndex].text}`;
+            const ingItem = {
+                id: Date.now() + Math.floor(Math.random() * 10000),
+                foodId: food.id,
+                name: food.name,
+                weight: weightInGrams,
+                displayAmount: displayAmountStr,
+                kcal: (food.kcal * ratio),
+                protein: (food.protein * ratio),
+                fat: (food.fat * ratio),
+                carbs: (food.carbs * ratio)
+            };
+            this.tempMeal.ingredients.push(ingItem);
+        } else {
+            // vnt produktas: kalorijos = kcal_per_unit × kiekis
+            const weightInGrams = amount * (food.weightPerUnit || 0);
+            const displayAmountStr = `${amount} vnt`;
 
-        const ingItem = {
-            id: Date.now() + Math.floor(Math.random() * 10000),
-            foodId: food.id,
-            name: food.name,
-            weight: weightInGrams,
-            displayAmount: displayAmountStr,
-            kcal: (food.kcal * ratio),
-            protein: (food.protein * ratio),
-            fat: (food.fat * ratio),
-            carbs: (food.carbs * ratio)
-        };
-
-        this.tempMeal.ingredients.push(ingItem);
+            const ingItem = {
+                id: Date.now() + Math.floor(Math.random() * 10000),
+                foodId: food.id,
+                name: food.name,
+                weight: weightInGrams,
+                displayAmount: displayAmountStr,
+                kcal: food.kcal * amount,
+                protein: food.protein * amount,
+                fat: food.fat * amount,
+                carbs: food.carbs * amount
+            };
+            this.tempMeal.ingredients.push(ingItem);
+        }
         this.calculateTempMeal();
         this.renderTempIngredients();
 
