@@ -298,7 +298,7 @@ select:focus {
 
 /* Bottom Navigation */
 .bottom-nav {
-    position: absolute;
+    position: fixed;
     bottom: 0;
     left: 0;
     width: 100%;
@@ -311,6 +311,7 @@ select:focus {
     justify-content: space-around;
     align-items: center;
     padding-bottom: 10px;
+    z-index: 1000;
     /* Safe area for some phones */
 }
 
