@@ -199,6 +199,19 @@ const app = {
         document.getElementById(modalId).classList.remove('active');
     },
 
+    closeMealModal() {
+        this.closeModal('addMealModal');
+        // Resetiname visą patiekalo formos būseną
+        this.editingMealId = null;
+        this.tempMeal = { ingredients: [], totalWeight: 0, totalKcal: 0, totalProtein: 0, totalFat: 0, totalCarbs: 0 };
+        document.getElementById('mealName').value = '';
+        document.getElementById('mealTotalWeight').innerText = '0';
+        document.getElementById('mealTotalKcal').innerText = '0';
+        document.getElementById('saveMealBtn').innerText = 'Išsaugoti patiekalą';
+        document.getElementById('addMealModal').querySelector('h2').innerText = 'Kurti Patiekalą';
+        this.renderTempIngredients();
+    },
+
     // --- PROFILIS IR SKAIČIAVIMAI ---
     setupProfileForm() {
         const form = document.getElementById('profileForm');
@@ -422,8 +435,9 @@ const app = {
         form.addEventListener('submit', (e) => {
             e.preventDefault();
             const newFood = {
-                id: Date.now(), // Unikalus ID
+                id: Date.now() + Math.floor(Math.random() * 10000),
                 name: document.getElementById('newFoodName').value,
+                unit: document.getElementById('newFoodUnit')?.value || 'g',
                 kcal: parseFloat(document.getElementById('newFoodKcal').value),
                 protein: parseFloat(document.getElementById('newFoodProtein').value),
                 fat: parseFloat(document.getElementById('newFoodFat').value),
@@ -468,7 +482,7 @@ const app = {
                 <div>
                     <strong>${food.name}</strong>
                     <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
-                        100g: ${food.kcal} kcal | B: ${food.protein}g | R: ${food.fat}g | A: ${food.carbs}g
+                        100${food.unit || 'g'}: ${food.kcal} kcal | B: ${food.protein}g | R: ${food.fat}g | A: ${food.carbs}g
                     </div>
                 </div>
                 <div style="display: flex; gap: 5px;">
@@ -487,27 +501,49 @@ const app = {
     // --- PATIEKALŲ KŪRIMAS ---
     setupMealForm() {
         this.updateIngredientSelect();
+        this.editingMealId = null; // null = naujas, number = redaguojamas
 
         const form = document.getElementById('addMealForm');
         form.addEventListener('submit', (e) => {
             e.preventDefault();
             if (this.tempMeal.ingredients.length === 0) return alert('Pridėkite bent vieną ingredientą!');
 
-            const newMeal = {
-                id: Date.now(),
-                name: document.getElementById('mealName').value,
-                ingredients: [...this.tempMeal.ingredients],
-                totalWeight: this.tempMeal.totalWeight,
-                kcal: this.tempMeal.totalKcal,
-                protein: this.tempMeal.totalProtein,
-                fat: this.tempMeal.totalFat,
-                carbs: this.tempMeal.totalCarbs
-            };
+            if (this.editingMealId !== null) {
+                // Redagavimo režimas - randame ir pakeičiame esamą patiekalą
+                const idx = this.data.meals.findIndex(m => m.id === this.editingMealId);
+                if (idx !== -1) {
+                    this.data.meals[idx] = {
+                        id: this.editingMealId,
+                        name: document.getElementById('mealName').value,
+                        ingredients: [...this.tempMeal.ingredients],
+                        totalWeight: this.tempMeal.totalWeight,
+                        kcal: this.tempMeal.totalKcal,
+                        protein: this.tempMeal.totalProtein,
+                        fat: this.tempMeal.totalFat,
+                        carbs: this.tempMeal.totalCarbs
+                    };
+                }
+                this.editingMealId = null;
+            } else {
+                // Naujas patiekalas
+                const newMeal = {
+                    id: Date.now() + Math.floor(Math.random() * 10000),
+                    name: document.getElementById('mealName').value,
+                    ingredients: [...this.tempMeal.ingredients],
+                    totalWeight: this.tempMeal.totalWeight,
+                    kcal: this.tempMeal.totalKcal,
+                    protein: this.tempMeal.totalProtein,
+                    fat: this.tempMeal.totalFat,
+                    carbs: this.tempMeal.totalCarbs
+                };
+                this.data.meals.push(newMeal);
+            }
 
-            this.data.meals.push(newMeal);
             this.saveData();
             this.renderMealsList();
             this.closeModal('addMealModal');
+            document.getElementById('addMealModal').querySelector('h2').innerText = 'Kurti Patiekalą';
+            document.getElementById('saveMealBtn').innerText = 'Išsaugoti patiekalą';
 
             // Atstatom laikinąjį
             this.tempMeal = { ingredients: [], totalWeight: 0, totalKcal: 0, totalProtein: 0, totalFat: 0, totalCarbs: 0 };
@@ -527,6 +563,41 @@ const app = {
             option.text = food.name;
             select.appendChild(option);
         });
+    },
+
+    editMeal(id) {
+        const meal = this.data.meals.find(m => m.id === id);
+        if (!meal) return;
+
+        this.editingMealId = id;
+
+        // Užpildome laikinus duomenis esamo patiekalo reikšmėmis
+        this.tempMeal = {
+            ingredients: [...meal.ingredients],
+            totalWeight: meal.totalWeight,
+            totalKcal: meal.kcal,
+            totalProtein: meal.protein,
+            totalFat: meal.fat,
+            totalCarbs: meal.carbs
+        };
+
+        // Atnaujinami sumų rodiniai
+        document.getElementById('mealTotalWeight').innerText = Math.round(meal.totalWeight);
+        document.getElementById('mealTotalKcal').innerText = Math.round(meal.kcal);
+
+        // Užpildome patiekalo pavadinimą
+        document.getElementById('mealName').value = meal.name;
+
+        // Pakeičiame modalinio lango antraštę ir mygtuko tekstą
+        document.getElementById('addMealModal').querySelector('h2').innerText = 'Redaguoti Patiekalą';
+        document.getElementById('saveMealBtn').innerText = 'Išsaugoti pakeitimus';
+
+        // Atvaizduojam ingredientus
+        this.renderTempIngredients();
+        this.calculateTempMeal();
+
+        // Atidarom modalą
+        this.showModal('addMealModal');
     },
 
     addIngredientToMeal() {
@@ -553,7 +624,7 @@ const app = {
         let displayAmountStr = `${amount} ${unitSelect.options[unitSelect.selectedIndex].text}`;
 
         const ingItem = {
-            id: Date.now(), // unikolu laikinui sąrašui
+            id: Date.now() + Math.floor(Math.random() * 10000),
             foodId: food.id,
             name: food.name,
             weight: weightInGrams,
@@ -622,14 +693,14 @@ const app = {
             li.style.fontSize = '14px';
 
             li.innerHTML = `
-            < div > ${i.name} (${i.weight}g)</div >
+                <div>${i.name} (${i.displayAmount || Math.round(i.weight) + 'g'})</div>
                 <div style="display: flex; align-items: center; gap: 10px;">
                     <span style="color: var(--text-muted); font-size: 12px;">${Math.round(i.kcal)} kcal</span>
                     <button type="button" class="icon-btn" style="padding: 2px; color: var(--danger)" onclick="app.removeTempIngredient(${i.id})">
                         <span class="material-icons-round" style="font-size: 18px;">delete</span>
                     </button>
                 </div>
-        `;
+            `;
             list.appendChild(li);
         });
     },
@@ -654,14 +725,17 @@ const app = {
             const kcalPer100 = meal.totalWeight > 0 ? (meal.kcal / meal.totalWeight) * 100 : 0;
 
             li.innerHTML = `
-            < div >
+                <div>
                     <strong>${meal.name}</strong>
                     <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
                         Visas svoris: ${Math.round(meal.totalWeight)}g | Viso: ${Math.round(meal.kcal)} kcal<br>
                         <em>100g turi ~${Math.round(kcalPer100)} kcal</em>
                     </div>
-                </div >
+                </div>
                 <div style="display: flex; gap: 5px;">
+                    <button class="icon-btn" onclick="app.editMeal(${meal.id})" title="Redaguoti">
+                        <span class="material-icons-round" style="color: var(--primary)">edit</span>
+                    </button>
                     <button class="icon-btn" onclick="app.deleteMeal(${meal.id})" title="Ištrinti">
                         <span class="material-icons-round" style="color: var(--danger)">delete</span>
                     </button>
