@@ -221,7 +221,7 @@ const app = {
             this.data.profile.gender = document.getElementById('gender').value;
             this.data.profile.age = parseFloat(document.getElementById('age').value) || 0;
             this.data.profile.height = parseFloat(document.getElementById('height').value) || 0;
-            this.data.profile.weight = parseFloat(document.getElementById('weight').value) || 0;
+            this.data.profile.weight = parseFloat(document.getElementById('weight').value.replace(',', '.')) || 0;
             this.data.profile.activity = parseFloat(document.getElementById('activity').value) || 1.2;
             this.data.profile.goal = parseFloat(document.getElementById('goal').value) || 0;
 
@@ -431,22 +431,35 @@ const app = {
 
     // --- PRODUKTŲ VALDYMAS ---
     setupAddFoodForm() {
+        this.editingFoodId = null;
         const form = document.getElementById('addProductForm');
         form.addEventListener('submit', (e) => {
             e.preventDefault();
             const unit = document.getElementById('newFoodUnit')?.value || 'g';
-            const newFood = {
-                id: Date.now() + Math.floor(Math.random() * 10000),
+            const foodData = {
                 name: document.getElementById('newFoodName').value,
                 unit: unit,
-                weightPerUnit: unit === 'vnt' ? (parseFloat(document.getElementById('newFoodWeightPerUnit').value) || 0) : 0,
-                kcal: parseFloat(document.getElementById('newFoodKcal').value),
-                protein: parseFloat(document.getElementById('newFoodProtein').value),
-                fat: parseFloat(document.getElementById('newFoodFat').value),
-                carbs: parseFloat(document.getElementById('newFoodCarbs').value)
+                weightPerUnit: unit === 'vnt' ? (parseFloat(document.getElementById('newFoodWeightPerUnit').value.replace(',', '.')) || 0) : 0,
+                kcal: parseFloat(document.getElementById('newFoodKcal').value.replace(',', '.')),
+                protein: parseFloat(document.getElementById('newFoodProtein').value.replace(',', '.')),
+                fat: parseFloat(document.getElementById('newFoodFat').value.replace(',', '.')),
+                carbs: parseFloat(document.getElementById('newFoodCarbs').value.replace(',', '.'))
             };
 
-            this.data.foods.push(newFood);
+            if (this.editingFoodId !== null) {
+                const idx = this.data.foods.findIndex(f => f.id === this.editingFoodId);
+                if (idx !== -1) {
+                    this.data.foods[idx] = { id: this.editingFoodId, ...foodData };
+                }
+                this.editingFoodId = null;
+            } else {
+                const newFood = {
+                    id: Date.now() + Math.floor(Math.random() * 10000),
+                    ...foodData
+                };
+                this.data.foods.push(newFood);
+            }
+
             this.saveData();
             this.renderFoodsList();
             // Atnaujinti produktų iškrentantį sąrašą
@@ -462,6 +475,39 @@ const app = {
         document.getElementById('foodSearch').addEventListener('input', (e) => {
             this.renderFoodsList(e.target.value);
         });
+    },
+
+    openAddFoodModal() {
+        this.editingFoodId = null;
+        document.getElementById('addProductForm').reset();
+        document.getElementById('addProductModal').querySelector('h2').innerText = 'Naujas Produktas';
+        document.getElementById('addProductModal').querySelector('button[type="submit"]').innerText = 'Išsaugoti produktą';
+        const wpuGroup = document.getElementById('weightPerUnitGroup');
+        if (wpuGroup) wpuGroup.style.display = 'none';
+        this.showModal('addProductModal');
+    },
+
+    editFood(id) {
+        const food = this.data.foods.find(f => f.id === id);
+        if (!food) return;
+
+        this.editingFoodId = id;
+        document.getElementById('newFoodName').value = food.name;
+        document.getElementById('newFoodUnit').value = food.unit || 'g';
+
+        const wpuGroup = document.getElementById('weightPerUnitGroup');
+        if (wpuGroup) wpuGroup.style.display = (food.unit === 'vnt') ? 'block' : 'none';
+
+        document.getElementById('newFoodWeightPerUnit').value = food.weightPerUnit || '';
+        document.getElementById('newFoodKcal').value = food.kcal;
+        document.getElementById('newFoodProtein').value = food.protein;
+        document.getElementById('newFoodFat').value = food.fat;
+        document.getElementById('newFoodCarbs').value = food.carbs;
+
+        document.getElementById('addProductModal').querySelector('h2').innerText = 'Redaguoti Produktą';
+        document.getElementById('addProductModal').querySelector('button[type="submit"]').innerText = 'Išsaugoti pakeitimus';
+
+        this.showModal('addProductModal');
     },
 
     onFoodUnitChange() {
@@ -497,6 +543,9 @@ const app = {
                     </div>
                 </div>
                 <div style="display: flex; gap: 5px;">
+                    <button class="icon-btn" onclick="app.editFood(${food.id})" title="Redaguoti">
+                        <span class="material-icons-round" style="color: var(--primary)">edit</span>
+                    </button>
                     <button class="icon-btn" onclick="app.deleteFood(${food.id})" title="Ištrinti">
                         <span class="material-icons-round" style="color: var(--danger)">delete</span>
                     </button>
@@ -617,7 +666,7 @@ const app = {
         const unitSelect = document.getElementById('ingredientUnit');
 
         const foodId = parseInt(select.value);
-        const amount = parseFloat(weightInput.value);
+        const amount = parseFloat(weightInput.value.replace(',', '.'));
         const unitValue = unitSelect.value; // gali būti "vnt" arba skaičius
         const isVnt = unitValue === 'vnt';
 
@@ -780,10 +829,18 @@ const app = {
     openConsumeModal(id, type) {
         let item = null;
         let kcalRatio = 0; // Kiek kalorijų viename grame
+        let isVnt = false;
 
         if (type === 'food') {
             item = this.data.foods.find(f => f.id === id);
-            if (item) kcalRatio = item.kcal / 100;
+            if (item) {
+                if (item.unit === 'vnt') {
+                    isVnt = true;
+                    kcalRatio = item.kcal;
+                } else {
+                    kcalRatio = item.kcal / 100;
+                }
+            }
         } else {
             item = this.data.meals.find(m => m.id === id);
             if (item) kcalRatio = item.kcal / item.totalWeight;
@@ -797,17 +854,39 @@ const app = {
 
         const weightInput = document.getElementById('consumeWeight');
         const unitSelect = document.getElementById('consumeUnit');
+
+        // Padarome 'vnt' parinktį matoma/nematoma priklausomai nuo to ar tai food'as su unit='vnt' (leidžiame patiekalams rodyti tik gramus/porcijas ir pan)
+        const vntOption = unitSelect.querySelector('option[value="vnt"]');
+        if (vntOption) {
+            vntOption.style.display = isVnt ? 'block' : 'none';
+        }
+
         weightInput.value = '';
-        unitSelect.value = '1';
+        unitSelect.value = isVnt ? 'vnt' : '1';
         const calcSpan = document.getElementById('consumeCalcKcal');
         calcSpan.innerText = '0';
 
         // Dinaminis skaičiavimas rašant
         const calculateLive = () => {
-            const amount = parseFloat(weightInput.value) || 0;
-            const multiplier = parseFloat(unitSelect.value) || 1;
-            const finalGrams = amount * multiplier;
-            calcSpan.innerText = Math.round(finalGrams * kcalRatio);
+            const amount = parseFloat(weightInput.value.replace(',', '.')) || 0;
+            const unitVal = unitSelect.value;
+            let finalKcal = 0;
+
+            if (unitVal === 'vnt') {
+                finalKcal = amount * item.kcal;
+            } else {
+                const multiplier = parseFloat(unitVal) || 1;
+                const finalGrams = amount * multiplier;
+
+                if (type === 'food' && item.unit === 'vnt') {
+                    const wpu = item.weightPerUnit || 1;
+                    const ratio = finalGrams / wpu;
+                    finalKcal = ratio * item.kcal;
+                } else {
+                    finalKcal = finalGrams * kcalRatio;
+                }
+            }
+            calcSpan.innerText = Math.round(finalKcal);
         };
 
         weightInput.oninput = calculateLive;
@@ -824,34 +903,61 @@ const app = {
 
             const id = parseInt(document.getElementById('consumeItemId').value);
             const type = document.getElementById('consumeItemType').value;
-            const amount = parseFloat(document.getElementById('consumeWeight').value);
+            const amount = parseFloat(document.getElementById('consumeWeight').value.replace(',', '.'));
             const unitSelect = document.getElementById('consumeUnit');
-            const multiplier = parseFloat(unitSelect.value);
+            const unitVal = unitSelect.value;
+            const isVnt = unitVal === 'vnt';
+            const multiplier = parseFloat(unitVal) || 1;
 
             if (!amount || amount <= 0) return;
 
-            const weightInGrams = amount * multiplier;
-            const displayAmountStr = `${amount} ${unitSelect.options[unitSelect.selectedIndex].text.split(' ')[0]}`;
-
+            // Racionalus sprendimas: Paimame product's original info and apply ratios properly
             let sourceItem = null;
             let consumed = {
                 id: Date.now(),
-                weight: weightInGrams,
-                displayAmount: displayAmountStr,
                 timestamp: new Date().toLocaleTimeString('lt-LT', { hour: '2-digit', minute: '2-digit' })
             };
             let ratio = 0;
+            let weightInGrams = 0;
 
             if (type === 'food') {
                 sourceItem = this.data.foods.find(f => f.id === id);
-                if (sourceItem) ratio = weightInGrams / 100;
+                if (sourceItem) {
+                    if (isVnt) {
+                        ratio = amount;
+                        weightInGrams = amount * (sourceItem.weightPerUnit || 0); // Svoris nėra privalomas, tik info
+                    } else {
+                        weightInGrams = amount * multiplier;
+                        if (sourceItem.unit === 'vnt') {
+                            const wpu = sourceItem.weightPerUnit || 1; // vengiam 0 per klaidą
+                            ratio = weightInGrams / wpu;
+                        } else {
+                            ratio = weightInGrams / 100;
+                        }
+                    }
+                }
             } else {
                 sourceItem = this.data.meals.find(m => m.id === id);
-                if (sourceItem) ratio = weightInGrams / sourceItem.totalWeight;
+                if (sourceItem) {
+                    weightInGrams = amount * multiplier;
+                    ratio = weightInGrams / sourceItem.totalWeight;
+                }
             }
 
             if (!sourceItem) return;
 
+            // Gražiai suformatuojam "X vnt" ar "X g"
+            let displayAmountStr = '';
+            if (isVnt) {
+                displayAmountStr = `${amount} vnt`;
+            } else {
+                displayAmountStr = `${amount} ${unitSelect.options[unitSelect.selectedIndex].text.split(' ')[0]}`;
+                // prirašom kiek susidarė gramų, jei ne gramai ir ne ml
+                if (unitVal !== '1') displayAmountStr += ` (${Math.round(weightInGrams)}g)`;
+            }
+
+            consumed.weight = weightInGrams;
+            consumed.displayAmount = displayAmountStr;
             consumed.name = sourceItem.name;
             consumed.type = type;
             consumed.kcal = sourceItem.kcal * ratio;
@@ -926,7 +1032,7 @@ const app = {
     // --- ISTORIJA IR PROGRESAS ---
     saveWeightHistory() {
         const input = document.getElementById('historyWeightInput');
-        const weight = parseFloat(input.value);
+        const weight = parseFloat(input.value.replace(',', '.'));
         if (!weight || weight < 30) return alert('Įveskite teisingą svorį!');
 
         // Skaičiuojame skirtumą nuo senojo svorio
