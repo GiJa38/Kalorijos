@@ -131,7 +131,8 @@ const app = {
                         totalCarbs: parsed.consumedToday.totalCarbs,
                         trainingKcal: parsed.consumedToday.trainingKcal || 0,
                         tdee: parsed.profile ? parsed.profile.tdee : 0,
-                        weight: parsed.profile ? parsed.profile.weight : 0
+                        weight: parsed.profile ? parsed.profile.weight : 0,
+                        items: parsed.consumedToday.items || []
                     });
                 }
 
@@ -1168,7 +1169,20 @@ const app = {
         this.renderHistoryChart(periodData);
 
         // Sugeneruojame ir parodome AI patarėją
-        this.analyzeWeeklyInsights(periodData);
+        let fullDataForInsights = [...periodData];
+        if (this.data.consumedToday && this.data.consumedToday.items && this.data.consumedToday.items.length > 0) {
+            fullDataForInsights.push({
+                date: this.data.consumedToday.date,
+                totalKcal: this.data.consumedToday.totalKcal,
+                totalProtein: this.data.consumedToday.totalProtein,
+                totalFat: this.data.consumedToday.totalFat,
+                totalCarbs: this.data.consumedToday.totalCarbs,
+                trainingKcal: this.data.consumedToday.trainingKcal || 0,
+                tdee: this.data.profile.tdee,
+                items: this.data.consumedToday.items
+            });
+        }
+        this.analyzeWeeklyInsights(fullDataForInsights);
     },
 
     analyzeWeeklyInsights(periodData) {
@@ -1178,8 +1192,8 @@ const app = {
         list.innerHTML = '';
         const insights = [];
 
-        if (!periodData || periodData.length < 3) {
-            list.innerHTML = '<li class="empty-state">Per mažai dienų analizei. Fiksuokite duomenis bent 3 dienas.</li>';
+        if (!periodData || periodData.length < 1) {
+            list.innerHTML = '<li class="empty-state">Per mažai dienų analizei. Pridėkite šiandienos suvalgytą maistą.</li>';
             return;
         }
 
@@ -1187,6 +1201,13 @@ const app = {
         let successfulDays = 0;
         let cheatDays = 0;
         let lowestDeficitDay = 0; // fiksavimui per mažo valgymo
+
+        let lateCarbsCount = 0;
+        let junkFoodCount = 0;
+        let healthyFatsCount = 0;
+
+        const junkPattern = /čipsai|cipsai|šokoladas|sokoladas|pica|burgeris|mėsainis|mesainis|saldainiai|tortas|pyragas|ledai|spurgos|bandel/i;
+        const healthyFatPattern = /avokad|riešut|riesut|lašis|lasis|alyvuog|sėklos|seklos|chia|linų|linu/i;
 
         const p = this.data.profile;
 
@@ -1209,6 +1230,26 @@ const app = {
             // Persivalgymo diena (viršijama palaikymo norma + 300 kcal)
             if (kcal > maintenance + 300) {
                 cheatDays++;
+            }
+
+            // Analizuojame atskirus produktus (laikui ir gerumui)
+            if (r.items && Array.isArray(r.items)) {
+                r.items.forEach(item => {
+                    const itemName = item.name ? item.name.toLowerCase() : '';
+
+                    // Vėlyvi angliavandeniai (po 20:00 val., daugiau nei 15g anglių viename užkandyje)
+                    if (item.timestamp && typeof item.timestamp === 'string') {
+                        const [hh] = item.timestamp.split(':');
+                        const hour = parseInt(hh);
+                        if (hour >= 20 && item.carbs > 15) {
+                            lateCarbsCount++;
+                        }
+                    }
+
+                    // Ieškome sveikų riebalų ir nesveikų produktų žodžių
+                    if (junkPattern.test(itemName)) junkFoodCount++;
+                    if (healthyFatPattern.test(itemName)) healthyFatsCount++;
+                });
             }
         });
 
@@ -1255,6 +1296,19 @@ const app = {
         } else if (pctC < 20) {
             // Galbūt keto dieta
             insights.push({ type: 'info', text: `<strong>Mažai angliavandenių:</strong> Renkate labai mažai angliavandenių (${pctC.toFixed(0)}%). Jei treniruotės sunkios ir jaučiatės išsekę, angliavandenių padidinimas gali grąžinti energiją.` });
+        }
+
+        // --- Naujos įžvalgos pagal laiką ir produktus ---
+        if (lateCarbsCount >= 2) {
+            insights.push({ type: 'warning', text: `<strong>Vėlyvi angliavandeniai:</strong> Pastebėjome, kad vakarop (po 20 val.) valgėte didesnį angliavandenių kiekį. Nors angliavandeniai vakare savaime nėra blogis, bet jei lėtėja svorio metimas arba rytais būna sunku pabusti, pabandykite didžiąją jų dalį suvartoti dienos pusėje, o ne vakarienės / naktipiečių metu.` });
+        }
+
+        if (junkFoodCount >= 3) {
+            insights.push({ type: 'danger', text: `<strong>Apdoroti produktai:</strong> Racione kelis kartus apsilankė itin perdirbti produktai ar saldumynai. Nors gal ir telpate į normą, siekiant puikios savijautos ir išvengiant „šokčiojančio alkio“, stenkitės, kad bent 80% raciono sudarytų pilnavertis neperdirbtas maistas.` });
+        }
+
+        if (healthyFatsCount > 0 && pctF >= 20) {
+            insights.push({ type: 'success', text: `<strong>Mityba švari riebalų atžvilgiu:</strong> Puiku! Menui aptikome sveikųjų riebalų šaltinių (avokadai, riešutai, žuvis ir pan.). Tai vienas geriausių būdų išlaikyti sotumo jausmą visą dieną švariai.` });
         }
 
         // Atvaizduojame UI
@@ -1397,6 +1451,54 @@ const app = {
                 }
             }
         });
+    },
+
+    // --- AI Asistentas: Ką suvalgyti? ---
+    generateMealSuggestion() {
+        const p = this.data.profile;
+        const c = this.data.consumedToday;
+
+        if (!p || !p.weight) return alert("Pirmiausia užpildykite profilį!");
+
+        // 1. Apskaičiuojam kiek liko
+        const targetKcal = p.eatBackCalories !== false ? p.tdee + (c.trainingKcal || 0) : p.tdee;
+        const remainingKcal = targetKcal - c.totalKcal;
+
+        const targetP = p.weight * 2.0; // orientacinis 2g/kg baltymų
+        const remainingP = targetP - c.totalProtein;
+
+        const targetF = p.weight * 1.0; // orientacinis 1g/kg riebalų
+        const remainingF = targetF - c.totalFat;
+
+        let suggestion = "";
+
+        if (remainingKcal <= 0) {
+            suggestion = "<b>Jūsų dienos kalorijų norma jau užpildyta!</b><br>Jei vis dar jaučiate alkį, rekomenduojame išgerti vandens arbą suvalgyti lengvą daržovių salotą be riebaus padažo, pvz. agurkų ir pomidorų, kad neviršytumėte kalorijų deficito.";
+        } else if (remainingKcal < 200) {
+            if (remainingP > 15) {
+                suggestion = `<b>Liko nedaug kalorijų (~${Math.round(remainingKcal)} kcal), bet trūksta baltymų.</b><br>Puikus lengvas užkandis, kuris padengs baltymų poreikį: <i>150g liesos varškės arba Islandiško jogurto (Skyr)</i>.`;
+            } else {
+                suggestion = `<b>Liko visai nedaug (~${Math.round(remainingKcal)} kcal).</b><br>Galite suvalgyti vieną nedidelį vaisių (pvz., obuolį ar didelį mandariną), arba mažą saują uogų.`;
+            }
+        } else if (remainingKcal >= 200 && remainingKcal <= 500) {
+            if (remainingP > 25) {
+                suggestion = `<b>Liko smagus užkandis (~${Math.round(remainingKcal)} kcal), tačiau labai trūksta baltymų!</b><br>Rekomendacija: <i>Baltyminis kokteilis, 2 kietai virti kiaušiniai, arba varškės desertas su uogomis (200g varškės, 50g uogų, šaukštelis medaus)</i>.`;
+            } else if (remainingF > 15) {
+                suggestion = `<b>Liko apie ${Math.round(remainingKcal)} kcal, bet dienai trūksta sveikų riebalų.</b><br>Rekomendacija: <i>Sauja mėgstamų riešutų (apie 30g), pusė avokado su trapučiu, arba mažas indelis žemės riešutų sviesto su obuoliu</i>.`;
+            } else {
+                suggestion = `<b>Liko dar pakankamai kalorijų geram užkandžiui (~${Math.round(remainingKcal)} kcal).</b><br>Rekomendacija: <i>Dubenėlis avižinės košės, pilno grūdo sumuštinis su vištienos krūtinėle, ar lengvos salotos su feta sūriu</i>.`;
+            }
+        } else {
+            // Daugiau nei 500 kcal
+            if (remainingP > 30) {
+                suggestion = `<b>Dar turite laisvės pilnam patiekalui (~${Math.round(remainingKcal)} kcal), tačiau ryškiai trūksta baltymų!</b><br>Rekomendacija: <i>Kepta lašiša ar vištienos krūtinėlė (apie 150-200g) su ryžiais ir garintomis daržovėmis.</i> Tai puikiai subalansuos dienos pabaigą.`;
+            } else {
+                suggestion = `<b>Liko didelė norma – galite suvalgyti pilnavertį patiekalą (~${Math.round(remainingKcal)} kcal).</b><br>Pvz.: <i>Mėsos troškinys, makaronai su pomidorų padažu ir sūriu, ar didelis dubuo mėgstamų salotų.</i> Makroelementų trūkumo nefiksuojame, todėl rinkitės tai, ką labiausiai mėgstate!`;
+            }
+        }
+
+        document.getElementById('aiSuggestionText').innerHTML = suggestion;
+        this.showModal('aiSuggestModal');
     },
 
     // --- IŠORINĖ API (OpenFoodFacts) INTERGRACIJA ---

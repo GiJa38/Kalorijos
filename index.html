@@ -99,6 +99,14 @@
                     </div>
                 </div>
 
+                <!-- AI Ką suvalgyti mygtukas -->
+                <button class="btn-primary"
+                    style="margin-bottom: 20px; display: flex; align-items: center; justify-content: center; gap: 8px; background: linear-gradient(135deg, #a371f7, #6e40c9); border: none;"
+                    onclick="app.generateMealSuggestion()">
+                    <span class="material-icons-round">auto_awesome</span>
+                    Nežinai, ką suvalgyti? Pasiūlyti patiekalą
+                </button>
+
                 <div class="macros-container">
                     <div class="macro-card glass-card">
                         <div class="macro-header">Baltymų</div>
@@ -586,6 +594,23 @@
                 <li class="empty-state">Įveskite produkto pavadinimą (lietuvški barkodai dažnai pildomi, bet geriau
                     randa angliškus žodžius, pvz. "Avocado") ir spauskite mygtuką.</li>
             </ul>
+        </div>
+    </div>
+
+    <!-- AI Pasiūlymo Modal -->
+    <div id="aiSuggestModal" class="modal">
+        <div class="glass-card modal-content" style="text-align: center;">
+            <div style="display: flex; justify-content: center; margin-bottom: 10px;">
+                <span class="material-icons-round" style="color: #a371f7; font-size: 40px;">auto_awesome</span>
+            </div>
+            <h3 style="margin-top:0; color: #a371f7;">Išmani rekomendacija</h3>
+
+            <div id="aiSuggestionText"
+                style="padding: 15px; background: rgba(0,0,0,0.2); border-radius: 8px; font-size: 15px; line-height: 1.5; margin-bottom: 20px; color: var(--text-main);">
+                Kraunama...
+            </div>
+
+            <button class="btn-primary" onclick="app.closeModal('aiSuggestModal')">Supratau, puiku!</button>
         </div>
     </div>
 
