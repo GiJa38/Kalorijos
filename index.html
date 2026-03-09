@@ -19,7 +19,7 @@
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js').then((reg) => {
+                navigator.serviceWorker.register('sw.js?v=1.1').then((reg) => {
                     console.log('SW registruotas:', reg.scope);
                 }).catch((err) => {
                     console.log('SW klaida:', err);
@@ -39,7 +39,7 @@
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=1.1">
 </head>
 
 <body>
@@ -589,7 +589,7 @@
         </div>
     </div>
 
-    <script src="app.js"></script>
+    <script src="app.js?v=1.1"></script>
 </body>
 
 </html>
