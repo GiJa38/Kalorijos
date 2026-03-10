@@ -1169,20 +1169,9 @@ const app = {
         this.renderHistoryChart(periodData);
 
         // Sugeneruojame ir parodome AI patarėją
-        let fullDataForInsights = [...periodData];
-        if (this.data.consumedToday && this.data.consumedToday.items && this.data.consumedToday.items.length > 0) {
-            fullDataForInsights.push({
-                date: this.data.consumedToday.date,
-                totalKcal: this.data.consumedToday.totalKcal,
-                totalProtein: this.data.consumedToday.totalProtein,
-                totalFat: this.data.consumedToday.totalFat,
-                totalCarbs: this.data.consumedToday.totalCarbs,
-                trainingKcal: this.data.consumedToday.trainingKcal || 0,
-                tdee: this.data.profile.tdee,
-                items: this.data.consumedToday.items
-            });
-        }
-        this.analyzeWeeklyInsights(fullDataForInsights);
+        // Pakeitimas: Paduodame tik periodData (praeities pilnas dienas), be šiandienos pusinių duomenų,
+        // kad AI netransliuotų "trūksta baltymų" iš pat ryto pamaldavus tik pusryčius.
+        this.analyzeWeeklyInsights(periodData);
     },
 
     analyzeWeeklyInsights(periodData) {
