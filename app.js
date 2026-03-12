@@ -799,15 +799,18 @@ const app = {
             li.style.justifyContent = 'space-between';
             li.style.alignItems = 'center';
 
-            // Kiek 100g gaunasi kalorijų?
+            // Kiek 100g gaunasi kalorijų ir makroelementų?
             const kcalPer100 = meal.totalWeight > 0 ? (meal.kcal / meal.totalWeight) * 100 : 0;
+            const protPer100 = meal.totalWeight > 0 ? ((meal.protein || meal.totalProtein || 0) / meal.totalWeight) * 100 : 0;
+            const fatPer100 = meal.totalWeight > 0 ? ((meal.fat || meal.totalFat || 0) / meal.totalWeight) * 100 : 0;
+            const carbPer100 = meal.totalWeight > 0 ? ((meal.carbs || meal.totalCarbs || 0) / meal.totalWeight) * 100 : 0;
 
             li.innerHTML = `
                 <div>
                     <strong>${meal.name}</strong>
                     <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
                         Visas svoris: ${Math.round(meal.totalWeight)}g | Viso: ${Math.round(meal.kcal)} kcal<br>
-                        <em>100g turi ~${Math.round(kcalPer100)} kcal</em>
+                        <em>100g: ~${Math.round(kcalPer100)} kcal | B: ${protPer100.toFixed(1)}g | R: ${fatPer100.toFixed(1)}g | A: ${carbPer100.toFixed(1)}g</em>
                     </div>
                 </div>
                 <div style="display: flex; gap: 5px;">
