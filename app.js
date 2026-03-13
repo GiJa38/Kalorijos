@@ -564,6 +564,14 @@ const app = {
         this.updateIngredientSelect();
         this.editingMealId = null; // null = naujas, number = redaguojamas
 
+        // Paieškos funkcionalumas patiekalams
+        const mealSearchInput = document.getElementById('mealSearch');
+        if (mealSearchInput) {
+            mealSearchInput.addEventListener('input', (e) => {
+                this.renderMealsList(e.target.value);
+            });
+        }
+
         const form = document.getElementById('addMealForm');
         form.addEventListener('submit', (e) => {
             e.preventDefault();
@@ -783,16 +791,20 @@ const app = {
         });
     },
 
-    renderMealsList() {
+    renderMealsList(filterText = '') {
         const list = document.getElementById('mealsList');
         list.innerHTML = '';
 
-        if (this.data.meals.length === 0) {
-            list.innerHTML = '<li class="empty-state">Jūs dar nesukūrėte jokių patiekalų.</li>';
+        const filtered = this.data.meals.filter(m =>
+            m.name.toLowerCase().includes(filterText.toLowerCase())
+        );
+
+        if (filtered.length === 0) {
+            list.innerHTML = `<li class="empty-state">${filterText ? 'Patiekalų nerasta.' : 'Jūs dar nesukūrėte jokių patiekalų.'}</li>`;
             return;
         }
 
-        this.data.meals.forEach(meal => {
+        filtered.forEach(meal => {
             const li = document.createElement('li');
             li.className = 'glass-card mt-10';
             li.style.display = 'flex';
