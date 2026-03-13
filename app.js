@@ -1446,11 +1446,15 @@ const app = {
     },
 
     // --- AI Asistentas: Ką suvalgyti? ---
+    // --- AI Asistentas: Ką suvalgyti? ---
     generateMealSuggestion() {
         const p = this.data.profile;
         const c = this.data.consumedToday;
 
         if (!p || !p.weight) return alert("Pirmiausia užpildykite profilį!");
+
+        // Pagalbinė funkcija atsitiktiniam pasirinkimui
+        const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
         // 1. Apskaičiuojam kiek liko
         const targetKcal = p.eatBackCalories !== false ? p.tdee + (c.trainingKcal || 0) : p.tdee;
@@ -1465,27 +1469,59 @@ const app = {
         let suggestion = "";
 
         if (remainingKcal <= 0) {
-            suggestion = "<b>Jūsų dienos kalorijų norma jau užpildyta!</b><br>Jei vis dar jaučiate alkį, rekomenduojame išgerti vandens arbą suvalgyti lengvą daržovių salotą be riebaus padažo, pvz. agurkų ir pomidorų, kad neviršytumėte kalorijų deficito.";
+            suggestion = pick([
+                "<b>Jūsų dienos kalorijų norma jau užpildyta!</b><br>Jei vis dar jaučiate alkį, rekomenduojame išgerti vandens arbą suvalgyti lengvą daržovių salotą be riebaus padažo.",
+                "<b>Kalorijų tikslas pasiektas!</b><br>Geriausia būtų likti prie vandens ar nesaldintos arbatos. Jei labai norisi ko nors kramtyti – agurkas yra puikus pasirinkimas.",
+                "<b>Dienos limitas viršytas arba pasiektas.</b><br>Rekomenduojame šiandien daugiau nebevalgyti, kad išlaikytumėte svorio metimo tempą."
+            ]);
         } else if (remainingKcal < 200) {
             if (remainingP > 15) {
-                suggestion = `<b>Liko nedaug kalorijų (~${Math.round(remainingKcal)} kcal), bet trūksta baltymų.</b><br>Puikus lengvas užkandis, kuris padengs baltymų poreikį: <i>150g liesos varškės arba Islandiško jogurto (Skyr)</i>.`;
+                suggestion = pick([
+                    `<b>Liko nedaug kalorijų (~${Math.round(remainingKcal)} kcal), bet trūksta baltymų.</b><br>Pasiūlymas: <i>150g liesos varškės arba Islandiško jogurto (Skyr)</i>.`,
+                    `<b>Mažai kalorijų (~${Math.round(remainingKcal)} kcal), didelis baltymų poreikis.</b><br>Pasiūlymas: <i>Kiaušinio baltymo omletas arba baltyminis kokteilis su vandeniu</i>.`,
+                    `<b>Tik ~${Math.round(remainingKcal)} kcal liko, griebkite baltymų!</b><br>Pasiūlymas: <i>Keletą riekelių lieso kumpio arba virtą kiaušinį</i>.`
+                ]);
             } else {
-                suggestion = `<b>Liko visai nedaug (~${Math.round(remainingKcal)} kcal).</b><br>Galite suvalgyti vieną nedidelį vaisių (pvz., obuolį ar didelį mandariną), arba mažą saują uogų.`;
+                suggestion = pick([
+                    `<b>Liko visai nedaug (~${Math.round(remainingKcal)} kcal).</b><br>Galite suvalgyti vieną nedidelį vaisių (pvz., obuolį ar didelį mandariną), arba mažą saują uogų.`,
+                    `<b>Mažas likutis (~${Math.round(remainingKcal)} kcal).</b><br>Rekomenduojame saują mėlynių arba porą ryžių trapučių.`,
+                    `<b>Pabaigai liko ~${Math.round(remainingKcal)} kcal.</b><br>Geriausia tiktų daržovės su trupučiu humuso arba tiesiog stiklinė kefyro.`
+                ]);
             }
         } else if (remainingKcal >= 200 && remainingKcal <= 500) {
             if (remainingP > 25) {
-                suggestion = `<b>Liko smagus užkandis (~${Math.round(remainingKcal)} kcal), tačiau labai trūksta baltymų!</b><br>Rekomendacija: <i>Baltyminis kokteilis, 2 kietai virti kiaušiniai, arba varškės desertas su uogomis (200g varškės, 50g uogų, šaukštelis medaus)</i>.`;
+                suggestion = pick([
+                    `<b>Liko smagus užkandis (~${Math.round(remainingKcal)} kcal), tačiau labai trūksta baltymų!</b><br>Rekomendacija: <i>Baltyminis kokteilis, 2 kietai virti kiaušiniai, arba varškės desertas su uogomis</i>.`,
+                    `<b>Tarpinis valgis (~${Math.round(remainingKcal)} kcal) su daug baltymų.</b><br>Rekomendacija: <i>Tunas savo sultyse su agurkais arba pakelis neriebios varškės su prieskoniais</i>.`,
+                    `<b>Reikia baltymų (~${Math.round(remainingKcal)} kcal ribose)!</b><br>Rekomendacija: <i>Graikiškas jogurtas su keliais riešutais arba vištienos krūtinėlės salotos</i>.`
+                ]);
             } else if (remainingF > 15) {
-                suggestion = `<b>Liko apie ${Math.round(remainingKcal)} kcal, bet dienai trūksta sveikų riebalų.</b><br>Rekomendacija: <i>Sauja mėgstamų riešutų (apie 30g), pusė avokado su trapučiu, arba mažas indelis žemės riešutų sviesto su obuoliu</i>.`;
+                suggestion = pick([
+                    `<b>Liko apie ${Math.round(remainingKcal)} kcal, bet dienai trūksta sveikų riebalų.</b><br>Rekomendacija: <i>Sauja mėgstamų riešutų (apie 30g), pusė avokado su trapučiu, arba žemės riešutų sviestas su obuoliu</i>.`,
+                    `<b>Riebalų deficitas (~${Math.round(remainingKcal)} kcal).</b><br>Rekomendacija: <i>Moliūgų sėklų sauja arba graikiniai riešutai</i>.`,
+                    `<b>Sutvarkykime riebalus (~${Math.round(remainingKcal)} kcal).</b><br>Rekomendacija: <i>Alyvuogės arba riebesnės žuvies (pvz. lašišos) užkandis</i>.`
+                ]);
             } else {
-                suggestion = `<b>Liko dar pakankamai kalorijų geram užkandžiui (~${Math.round(remainingKcal)} kcal).</b><br>Rekomendacija: <i>Dubenėlis avižinės košės, pilno grūdo sumuštinis su vištienos krūtinėle, ar lengvos salotos su feta sūriu</i>.`;
+                suggestion = pick([
+                    `<b>Liko dar pakankamai kalorijų geram užkandžiui (~${Math.round(remainingKcal)} kcal).</b><br>Rekomendacija: <i>Dubenėlis avižinės košės, pilno grūdo sumuštinis su vištiena, ar lengvos salotos su feta sūriu</i>.`,
+                    `<b>Subalansuotas likutis (~${Math.round(remainingKcal)} kcal).</b><br>Rekomendacija: <i>Vaisių salotos su jogurtu arba trapučiai su sūriu</i>.`,
+                    `<b>Laisvė pasirinkti (~${Math.round(remainingKcal)} kcal).</b><br>Rekomendacija: <i>Sveikas batonėlis arba stiklinė pieno su keliais sausainiais (pilno grūdo)</i>.`
+                ]);
             }
         } else {
             // Daugiau nei 500 kcal
             if (remainingP > 30) {
-                suggestion = `<b>Dar turite laisvės pilnam patiekalui (~${Math.round(remainingKcal)} kcal), tačiau ryškiai trūksta baltymų!</b><br>Rekomendacija: <i>Kepta lašiša ar vištienos krūtinėlė (apie 150-200g) su ryžiais ir garintomis daržovėmis.</i> Tai puikiai subalansuos dienos pabaigą.`;
+                suggestion = pick([
+                    `<b>Dar turite laisvės pilnam patiekalui (~${Math.round(remainingKcal)} kcal), tačiau ryškiai trūksta baltymų!</b><br>Rekomendacija: <i>Kepta lašiša ar vištienos krūtinėlė su ryžiais ir garintomis daržovėmis</i>.`,
+                    `<b>Didelis likutis (~${Math.round(remainingKcal)} kcal), pasirūpinkite baltymais.</b><br>Rekomendacija: <i>Jautienos didepsnis (steak) su šviežiomis daržovėmis</i>.`,
+                    `<b>Pabaigai – baltyminė bomba (~${Math.round(remainingKcal)} kcal).</b><br>Rekomendacija: <i>Varškėčiai (virti ar kepti) su paprastu jogurtu</i>.`
+                ]);
             } else {
-                suggestion = `<b>Liko didelė norma – galite suvalgyti pilnavertį patiekalą (~${Math.round(remainingKcal)} kcal).</b><br>Pvz.: <i>Mėsos troškinys, makaronai su pomidorų padažu ir sūriu, ar didelis dubuo mėgstamų salotų.</i> Makroelementų trūkumo nefiksuojame, todėl rinkitės tai, ką labiausiai mėgstate!`;
+                suggestion = pick([
+                    `<b>Liko didelė norma – galite suvalgyti pilnavertį patiekalą (~${Math.round(remainingKcal)} kcal).</b><br>Pvz.: <i>Mėsos troškinys, makaronai su pomidorų padažu ir sūriu, ar didelis dubuo mėgstamų salotų</i>.`,
+                    `<b>Vis dar turite kokių ~${Math.round(remainingKcal)} kcal vakarienei.</b><br>Pvz.: <i>Lazanija, pica su daug daržovių ar gausios salotos su riešutais</i>.`,
+                    `<b>Didelė laisvė rinktis (~${Math.round(remainingKcal)} kcal).</b><br>Pvz.: <i>Wok keptuvėje ruošti makaronai su daržovėmis ir mėsa</i>.`
+                ]);
             }
         }
 
