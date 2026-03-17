@@ -535,3 +535,71 @@ select:focus {
     background: var(--primary);
     color: #fff;
 }
+
+/* Improved AI Insights */
+.insight-card {
+    background: rgba(255, 255, 10, 0.05); /* Very subtle tint */
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
+    padding: 16px;
+    margin-bottom: 12px;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.insight-card:hover {
+    background: rgba(255, 255, 255, 0.06);
+    transform: translateX(4px);
+}
+
+.insight-card .insight-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    flex-shrink: 0;
+}
+
+.insight-card.success { border-left: 4px solid var(--success); }
+.insight-card.success .insight-icon { background: rgba(46, 160, 67, 0.15); color: var(--success); }
+
+.insight-card.warning { border-left: 4px solid #d29922; }
+.insight-card.warning .insight-icon { background: rgba(210, 153, 34, 0.15); color: #d29922; }
+
+.insight-card.danger { border-left: 4px solid var(--danger); }
+.insight-card.danger .insight-icon { background: rgba(248, 81, 73, 0.15); color: var(--danger); }
+
+.insight-card.info { border-left: 4px solid var(--primary); }
+.insight-card.info .insight-icon { background: rgba(88, 166, 255, 0.15); color: var(--primary); }
+
+.insight-content {
+    flex: 1;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.insight-content strong {
+    display: block;
+    margin-bottom: 2px;
+    font-size: 15px;
+}
+
+.insight-recommendation {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--glass-border);
+    font-style: italic;
+    color: var(--text-main);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.insight-recommendation .material-icons-round {
+    font-size: 16px;
+    color: var(--primary);
+}

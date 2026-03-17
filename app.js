@@ -1204,7 +1204,6 @@ const app = {
         let totalKcal = 0, totalP = 0, totalF = 0, totalC = 0;
         let successfulDays = 0;
         let cheatDays = 0;
-        let lowestDeficitDay = 0; // fiksavimui per mažo valgymo
 
         let lateCarbsCount = 0;
         let junkFoodCount = 0;
@@ -1222,26 +1221,20 @@ const app = {
             totalF += (r.totalFat || 0);
             totalC += (r.totalCarbs || 0);
 
-            // Dinaminis tikslas (įskaitant asmeninį "eatBackCalories")
             const dynamicTDEE = (p.eatBackCalories !== false) ? r.tdee + (r.trainingKcal || 0) : r.tdee;
-            const maintenance = r.tdee - (p.goal || 0) + (r.trainingKcal || 0); // Kiek gali suvalgyti kad neliestų svorio
+            const maintenance = r.tdee - (p.goal || 0) + (r.trainingKcal || 0);
 
-            // Tikslo laikymasis (jei suvalgo ±150 kcal aplink tikslą arba net mažiau deficite)
             if (kcal > 0 && kcal <= dynamicTDEE + 150) {
                 successfulDays++;
             }
 
-            // Persivalgymo diena (viršijama palaikymo norma + 300 kcal)
             if (kcal > maintenance + 300) {
                 cheatDays++;
             }
 
-            // Analizuojame atskirus produktus (laikui ir gerumui)
             if (r.items && Array.isArray(r.items)) {
                 r.items.forEach(item => {
                     const itemName = item.name ? item.name.toLowerCase() : '';
-
-                    // Vėlyvi angliavandeniai (po 20:00 val., daugiau nei 15g anglių viename užkandyje)
                     if (item.timestamp && typeof item.timestamp === 'string') {
                         const [hh] = item.timestamp.split(':');
                         const hour = parseInt(hh);
@@ -1249,8 +1242,6 @@ const app = {
                             lateCarbsCount++;
                         }
                     }
-
-                    // Ieškome sveikų riebalų ir nesveikų produktų žodžių
                     if (junkPattern.test(itemName)) junkFoodCount++;
                     if (healthyFatPattern.test(itemName)) healthyFatsCount++;
                 });
@@ -1263,77 +1254,157 @@ const app = {
             return;
         }
 
-        const avgKcal = totalKcal / daysWithRecords;
-
-        // Procentinis makroelementų pasiskirstymas faktinis
         const pctP = ((totalP * 4) / totalKcal) * 100 || 0;
         const pctF = ((totalF * 9) / totalKcal) * 100 || 0;
         const pctC = ((totalC * 4) / totalKcal) * 100 || 0;
 
-        // 1. Konsistencijos įžvalga
+        // --- Helper for finding recommendation from user's meals ---
+        const findUserMealRecommendation = (type) => {
+            if (!this.data.meals || this.data.meals.length === 0) return null;
+            
+            return this.data.meals.find(m => {
+                const kcal = m.kcal;
+                const pRatio = (m.protein * 4) / kcal;
+                const fRatio = (m.fat * 9) / kcal;
+                const cRatio = (m.carbs * 4) / kcal;
+                
+                if (type === 'protein') return pRatio > 0.3;
+                if (type === 'healthy_fat') return fRatio > 0.4;
+                if (type === 'balanced') return pRatio > 0.2 && pRatio < 0.4;
+                return false;
+            });
+        };
+
+        // 1. Consistency
         if (successfulDays === periodData.length) {
-            insights.push({ type: 'success', text: `<strong>Puikus pastovumas!</strong> Visas ${periodData.length} dienas iš eilės neviršijote savo tikslo. Taip ir toliau!` });
+            insights.push({ 
+                type: 'success', 
+                icon: 'verified',
+                title: 'Geležinė kantrybė!', 
+                text: `Visas ${periodData.length} dienas laikėtės plano. Tai tiesiausias kelias į tikslą!` 
+            });
         } else if (cheatDays > 1) {
-            insights.push({ type: 'danger', text: `<strong>Kalorijų šuoliai:</strong> Per šį laikotarpį net ${cheatDays} d. stipriai viršijote savo <em>palaikymo</em> normą. Tokie šuoliai gali "suvalgyti" visos savaitės jūsų sukauptą deficitą.` });
+            insights.push({ 
+                type: 'danger', 
+                icon: 'warning_amber',
+                title: 'Kalorijų kalneliai', 
+                text: `Pastebėjome ${cheatDays} dienas su dideliu viršijimu. Stabilumas yra svarbiau už vienkartines pastangas.` 
+            });
         }
 
-        // 2. Baltymų analizė (Siekiamybė ~30%, arba bent > 1.2g/kg kūno svoriui)
+        // 2. Protein
         const avgP_grams = totalP / daysWithRecords;
         const gPerKg = avgP_grams / p.weight;
 
         if (gPerKg < 1.2 || pctP < 20) {
-            insights.push({ type: 'warning', text: `<strong>Trūksta baltymų:</strong> Vidutiniškai surenkate tik ${pctP.toFixed(0)}% baltymų (norma ~30%). Dėl to galite jausti didesnį alkį ir prarasti raumenų masę. Pabandykite įtraukti daugiau kiaušinių, žuvies ar varškės.` });
+            const mealRec = findUserMealRecommendation('protein');
+            insights.push({ 
+                type: 'warning', 
+                icon: 'fitness_center',
+                title: 'Stiprinkime raumenis', 
+                text: `Baltymai sudaro tik ${pctP.toFixed(0)}% raciono. Jie padeda išvengti alkio ir saugo raumenis.`,
+                recommendation: mealRec ? `Išbandykite savo receptą: <strong>${mealRec.name}</strong> – jis puikus baltymų šaltinis!` : 'Pabandykite įtraukti daugiau kiaušinių, liesos mėsos ar ankštinių augalų.'
+            });
         } else if (pctP > 40) {
-            insights.push({ type: 'info', text: `<strong>Baltymų perteklius:</strong> Baltymai sudaro net ${pctP.toFixed(0)}%. Nors tai gerai sotumui, įsitikinkite, kad neaukojate naudingų riebalų ir angliavandenių.` });
+            insights.push({ 
+                type: 'info', 
+                icon: 'info',
+                title: 'Baltymų galia', 
+                text: `Baltymai sudaro net ${pctP.toFixed(0)}% raciono. Puiku sotumui, bet nepamirškite ir sveikų skaidulų!` 
+            });
         }
 
-        // 3. Riebalų analizė (Siekiamybė ~30%, neturėtų kristi žemiau 20% hormonų sveikatai)
+        // 3. Fats
         if (pctF < 20) {
-            insights.push({ type: 'warning', text: `<strong>Per mažai riebalų:</strong> Jūsų mityboje riebalai sudaro tik ${pctF.toFixed(0)}%. Kad išlaikytumėte sveiką hormonų foną, nevenkite sveikų riebalų (riešutai, avokadai, alyvuogių aliejus).` });
+            const mealRec = findUserMealRecommendation('healthy_fat');
+            insights.push({ 
+                type: 'warning', 
+                icon: 'favorite',
+                title: 'Hormonų sveikata', 
+                text: `Riebalų kiekis (${pctF.toFixed(0)}%) yra gana žemas. Sveiki riebalai būtini savijautai.`,
+                recommendation: mealRec ? `Jūsų receptas <strong>${mealRec.name}</strong> padėtų subalansuoti riebalus!` : 'Pridėkite šlakelį alyvuogių aliejaus ar saują riešutų.'
+            });
         } else if (pctF > 40) {
-            insights.push({ type: 'danger', text: `<strong>Per daug riebalų:</strong> Riebalai suvalgo didžiąją dalį jūsų kalorijų (vid. ${pctF.toFixed(0)}%). Dėl šios priežasties maisto tūris lėkštėje būna mažesnis, kas greičiau iššaukia netikėto alkio priepuolius.` });
+            insights.push({ 
+                type: 'danger', 
+                icon: 'opacity',
+                title: 'Riebalų tankis', 
+                text: `Riebalai sudaro ${pctF.toFixed(0)}% kalorijų. Maistas tampa labai kaloringas mažame tūryje, todėl sunkiau pasisotinti.` 
+            });
         }
 
-        // 4. Angliavandenių analizė (Siekiamybė ~40%)
+        // 4. Carbs
         if (pctC > 55) {
-            insights.push({ type: 'warning', text: `<strong>Dominuoja angliavandeniai:</strong> Jūsų mityba labai angliavandeninė (${pctC.toFixed(0)}%). Jei trūksta energijos rytais, pabandykite dalį jų pakeisti į sotumą suteikiančius baltymus.` });
-        } else if (pctC < 20) {
-            // Galbūt keto dieta
-            insights.push({ type: 'info', text: `<strong>Mažai angliavandenių:</strong> Renkate labai mažai angliavandenių (${pctC.toFixed(0)}%). Jei treniruotės sunkios ir jaučiatės išsekę, angliavandenių padidinimas gali grąžinti energiją.` });
+            insights.push({ 
+                type: 'warning', 
+                icon: 'bolt',
+                title: 'Energijos šuoliai', 
+                text: `Angliavandeniai dominuoja (${pctC.toFixed(0)}%). Jei trūksta energijos po valgio, pabandykite juos kombinuoti su baltymais.` 
+            });
         }
 
-        // --- Naujos įžvalgos pagal laiką ir produktus ---
+        // 5. Habits
         if (lateCarbsCount >= 2) {
-            insights.push({ type: 'warning', text: `<strong>Vėlyvi angliavandeniai:</strong> Pastebėjome, kad vakarop (po 20 val.) valgėte didesnį angliavandenių kiekį. Nors angliavandeniai vakare savaime nėra blogis, bet jei lėtėja svorio metimas arba rytais būna sunku pabusti, pabandykite didžiąją jų dalį suvartoti dienos pusėje, o ne vakarienės / naktipiečių metu.` });
+            insights.push({ 
+                type: 'info', 
+                icon: 'bedtime',
+                title: 'Vėlyva energija', 
+                text: `Vakarais renkatės daug angliavandenių. Jei ryte jaučiatės sunkiai, pabandykite juos perkelti į dienos vidurį.` 
+            });
         }
 
         if (junkFoodCount >= 3) {
-            insights.push({ type: 'danger', text: `<strong>Apdoroti produktai:</strong> Racione kelis kartus apsilankė itin perdirbti produktai ar saldumynai. Nors gal ir telpate į normą, siekiant puikios savijautos ir išvengiant „šokčiojančio alkio“, stenkitės, kad bent 80% raciono sudarytų pilnavertis neperdirbtas maistas.` });
+            insights.push({ 
+                type: 'danger', 
+                icon: 'fastfood',
+                title: 'Maisto kokybė', 
+                text: `Racione pasirodė nemažai perdirbtų produktų. Stenkitės grįžti prie "gryno" maisto energijai palaikyti.` 
+            });
         }
 
         if (healthyFatsCount > 0 && pctF >= 20) {
-            insights.push({ type: 'success', text: `<strong>Mityba švari riebalų atžvilgiu:</strong> Puiku! Menui aptikome sveikųjų riebalų šaltinių (avokadai, riešutai, žuvis ir pan.). Tai vienas geriausių būdų išlaikyti sotumo jausmą visą dieną švariai.` });
+            insights.push({ 
+                type: 'success', 
+                icon: 'star',
+                title: 'Švari mityba', 
+                text: `Puiku! Randame kokybiškų riebalų šaltinių. Tai puiki investicija į ilgalaikę sveikatą.` 
+            });
         }
 
-        // Atvaizduojame UI
+        // Render UI
         if (insights.length === 0) {
-            list.innerHTML = '<li class="empty-state" style="color:var(--success)">Viskas atrodo puikiai! Didelių trūkumų ar nukrypimų neradome.</li>';
+            list.innerHTML = '<li class="empty-state" style="color:var(--success)">Viskas atrodo puikiai! Didelių nukrypimų neradome.</li>';
             return;
         }
 
         insights.forEach(ins => {
             const li = document.createElement('li');
-            li.style.background = 'rgba(0,0,0,0.2)';
-            li.style.padding = '12px';
-            li.style.marginBottom = '10px';
-            li.style.borderRadius = '8px';
-            li.style.fontSize = '14px';
-            li.style.borderLeft = `4px solid var(--${ins.type})`; // Spalva pagal tipą (success, danger, warning)
+            li.className = `insight-card ${ins.type}`;
 
-            li.innerHTML = ins.text;
+            let html = `
+                <div class="insight-icon">
+                    <span class="material-icons-round">${ins.icon || 'lightbulb'}</span>
+                </div>
+                <div class="insight-content">
+                    <strong>${ins.title}</strong>
+                    <div>${ins.text}</div>
+            `;
+            
+            if (ins.recommendation) {
+                html += `
+                    <div class="insight-recommendation">
+                        <span class="material-icons-round">tips_and_updates</span>
+                        <span>${ins.recommendation}</span>
+                    </div>
+                `;
+            }
+            
+            html += `</div>`;
+            li.innerHTML = html;
             list.appendChild(li);
         });
     },
+
 
     renderHistoryChart(periodData) {
         if (!window.Chart) return; // Jei Chart.js dar neužsikrovė
