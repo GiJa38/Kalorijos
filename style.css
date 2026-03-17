@@ -602,4 +602,58 @@ select:focus {
 .insight-recommendation .material-icons-round {
     font-size: 16px;
     color: var(--primary);
-}
+}
+
+/* Macro Comparison UI */
+.macro-comparison-container {
+    margin-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.macro-comp-row {
+    font-size: 12px;
+}
+
+.macro-comp-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 4px;
+}
+
+.macro-comp-bar-bg {
+    height: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+    position: relative;
+    overflow: hidden;
+}
+
+.macro-comp-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+}
+
+.macro-comp-target-line {
+    position: absolute;
+    top: 0;
+    width: 2px;
+    height: 100%;
+    background: #fff;
+    box-shadow: 0 0 4px rgba(0,0,0,0.5);
+    z-index: 2;
+}
+
+.status-tag {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    font-weight: 700;
+}
+
+.status-tag.ok { background: rgba(46, 160, 67, 0.2); color: var(--success); }
+.status-tag.high { background: rgba(248, 81, 73, 0.2); color: var(--danger); }
+.status-tag.low { background: rgba(210, 153, 34, 0.2); color: #d29922; }
+

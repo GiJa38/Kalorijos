@@ -1258,13 +1258,40 @@ const app = {
         const pctF = ((totalF * 9) / totalKcal) * 100 || 0;
         const pctC = ((totalC * 4) / totalKcal) * 100 || 0;
 
-        // --- ALWAYS ON: Weekly Overview ---
+        // --- Helper for Status Tags ---
+        const getStatusTag = (current, target) => {
+            const diff = current - target;
+            if (Math.abs(diff) <= 5) return '<span class="status-tag ok">Tikslas</span>';
+            if (diff > 5) return '<span class="status-tag high">Viršyta</span>';
+            return '<span class="status-tag low">Trūksta</span>';
+        };
+
+        const getMacroRow = (label, current, target, color) => `
+            <div class="macro-comp-row">
+                <div class="macro-comp-labels">
+                    <span>${label}: <strong>${Math.round(current)}%</strong> (tikslas ${target}%)</span>
+                    ${getStatusTag(current, target)}
+                </div>
+                <div class="macro-comp-bar-bg">
+                    <div class="macro-comp-target-line" style="left: ${target}%"></div>
+                    <div class="macro-comp-bar-fill" style="width: ${Math.min(current, 100)}%; background: ${color}"></div>
+                </div>
+            </div>
+        `;
+
+        // --- ALWAYS ON: Weekly Overview (Refined) ---
         insights.push({
             type: 'info',
             icon: 'analytics',
-            title: `Apžvalga (${daysWithRecords} d. su duomenimis)`,
-            text: `Per šį laikotarpį jūsų mitybos balansas: <strong>B:${pctP.toFixed(0)}% R:${pctF.toFixed(0)}% A:${pctC.toFixed(0)}%</strong>. 
-                   Vidutiniškai suvartojote ${Math.round(totalKcal / daysWithRecords)} kcal per dieną.`
+            title: `Mitybos balansas (${daysWithRecords} d.)`,
+            text: `Šie procentai rodo, kokią dalį jūsų dienos kalorijų sudarė baltymai, riebalai ir angliavandeniai.`,
+            customHtml: `
+                <div class="macro-comparison-container">
+                    ${getMacroRow('Baltymai', pctP, 30, 'var(--macro-protein)')}
+                    ${getMacroRow('Riebalai', pctF, 30, 'var(--macro-fat)')}
+                    ${getMacroRow('Angliavandeniai', pctC, 40, 'var(--macro-carbs)')}
+                </div>
+            `
         });
 
         // --- Helper for finding recommendation from user's meals ---
@@ -1397,6 +1424,7 @@ const app = {
                 <div class="insight-content">
                     <strong>${ins.title}</strong>
                     <div>${ins.text}</div>
+                    ${ins.customHtml || ''}
             `;
             
             if (ins.recommendation) {
