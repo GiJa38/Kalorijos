@@ -1258,6 +1258,15 @@ const app = {
         const pctF = ((totalF * 9) / totalKcal) * 100 || 0;
         const pctC = ((totalC * 4) / totalKcal) * 100 || 0;
 
+        // --- ALWAYS ON: Weekly Overview ---
+        insights.push({
+            type: 'info',
+            icon: 'analytics',
+            title: `Apžvalga (${daysWithRecords} d. su duomenimis)`,
+            text: `Per šį laikotarpį jūsų mitybos balansas: <strong>B:${pctP.toFixed(0)}% R:${pctF.toFixed(0)}% A:${pctC.toFixed(0)}%</strong>. 
+                   Vidutiniškai suvartojote ${Math.round(totalKcal / daysWithRecords)} kcal per dieną.`
+        });
+
         // --- Helper for finding recommendation from user's meals ---
         const findUserMealRecommendation = (type) => {
             if (!this.data.meals || this.data.meals.length === 0) return null;
