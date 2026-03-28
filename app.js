@@ -1245,7 +1245,7 @@ const app = {
             return;
         }
 
-        let totalKcal = 0, totalP = 0, totalF = 0, totalC = 0;
+        let totalKcal = 0, totalP = 0, totalF = 0, totalC = 0, totalFib = 0;
         let successfulDays = 0;
         let cheatDays = 0;
 
@@ -1264,6 +1264,7 @@ const app = {
             totalP += (r.totalProtein || 0);
             totalF += (r.totalFat || 0);
             totalC += (r.totalCarbs || 0);
+            totalFib += (r.totalFiber || 0);
 
             const dynamicTDEE = (p.eatBackCalories !== false) ? r.tdee + (r.trainingKcal || 0) : r.tdee;
             const maintenance = r.tdee - (p.goal || 0) + (r.trainingKcal || 0);
@@ -1301,39 +1302,64 @@ const app = {
         const pctP = ((totalP * 4) / totalKcal) * 100 || 0;
         const pctF = ((totalF * 9) / totalKcal) * 100 || 0;
         const pctC = ((totalC * 4) / totalKcal) * 100 || 0;
+        
+        const avgFiber = totalFib / daysWithRecords;
+        const targetFiber = p.macros.fiber || Math.round((p.tdee / 1000) * 14);
 
         // --- Helper for Status Tags ---
-        const getStatusTag = (current, target) => {
+        const getStatusTag = (current, target, isGram = false) => {
             const diff = current - target;
-            if (Math.abs(diff) <= 5) return '<span class="status-tag ok">Tikslas</span>';
-            if (diff > 5) return '<span class="status-tag high">Viršyta</span>';
+            const margin = isGram ? 3 : 5; // 3g margin for fiber, 5% for macros
+            if (Math.abs(diff) <= margin) return '<span class="status-tag ok">Norma</span>';
+            if (diff > margin) return '<span class="status-tag high">Viršyta</span>';
             return '<span class="status-tag low">Trūksta</span>';
         };
 
-        const getMacroRow = (label, current, target, color) => `
+        const getMacroRow = (label, current, target, color, isGram = false) => {
+            const unit = isGram ? 'g' : '%';
+            let targetLeft = target;
+            let fillWidth = current;
+
+            if (isGram) {
+                if (current >= target && target > 0) {
+                    targetLeft = (target / current) * 100;
+                    fillWidth = 100;
+                } else if (target > 0) {
+                    targetLeft = 100;
+                    fillWidth = (current / target) * 100;
+                } else {
+                    targetLeft = 0; fillWidth = 0;
+                }
+            } else {
+                fillWidth = Math.min(current, 100);
+            }
+
+            return `
             <div class="macro-comp-row">
                 <div class="macro-comp-labels">
-                    <span>${label}: <strong>${Math.round(current)}%</strong> (tikslas ${target}%)</span>
-                    ${getStatusTag(current, target)}
+                    <span>${label}: <strong>${Math.round(current)}${unit}</strong> (tikslas ${Math.round(target)}${unit})</span>
+                    ${getStatusTag(current, target, isGram)}
                 </div>
                 <div class="macro-comp-bar-bg">
-                    <div class="macro-comp-target-line" style="left: ${target}%"></div>
-                    <div class="macro-comp-bar-fill" style="width: ${Math.min(current, 100)}%; background: ${color}"></div>
+                    <div class="macro-comp-target-line" style="left: ${targetLeft}%"></div>
+                    <div class="macro-comp-bar-fill" style="width: ${fillWidth}%; background: ${color}"></div>
                 </div>
             </div>
-        `;
+            `;
+        };
 
         // --- ALWAYS ON: Weekly Overview (Refined) ---
         insights.push({
             type: 'info',
             icon: 'analytics',
             title: `Mitybos balansas (${daysWithRecords} d.)`,
-            text: `Šie procentai rodo, kokią dalį jūsų dienos kalorijų sudarė baltymai, riebalai ir angliavandeniai.`,
+            text: `Šie rodikliai rodo jūsų mitybos išklotinę: makroelementų proporcijas (%) ir kasdieninį skaidulų vidurkį (g).`,
             customHtml: `
                 <div class="macro-comparison-container">
                     ${getMacroRow('Baltymai', pctP, 30, 'var(--macro-protein)')}
                     ${getMacroRow('Riebalai', pctF, 30, 'var(--macro-fat)')}
                     ${getMacroRow('Angliavandeniai', pctC, 40, 'var(--macro-carbs)')}
+                    ${getMacroRow('Skaidulos (vid.)', avgFiber, targetFiber, 'var(--macro-fiber)', true)}
                 </div>
             `
         });
