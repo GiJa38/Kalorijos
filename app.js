@@ -168,7 +168,30 @@ const app = {
             }
             if (parsed.meals) {
                 parsed.meals = parsed.meals.map(m => {
-                    if (m.totalFiber === undefined) m.totalFiber = 0;
+                    let calculatedFiber = 0;
+                    if (m.ingredients && Array.isArray(m.ingredients)) {
+                        m.ingredients = m.ingredients.map(ing => {
+                            if (ing.fiber === undefined) {
+                                const food = parsed.foods ? parsed.foods.find(f => f.id === ing.foodId || f.name === ing.name) : null;
+                                if (food && food.fiber > 0) {
+                                    let multiplier = 0;
+                                    if (food.kcal > 0) multiplier = ing.kcal / food.kcal;
+                                    else if (food.protein > 0) multiplier = ing.protein / food.protein;
+                                    else if (food.carbs > 0) multiplier = ing.carbs / food.carbs;
+                                    else if (food.fat > 0) multiplier = ing.fat / food.fat;
+                                    else multiplier = ing.weight / 100;
+                                    
+                                    ing.fiber = food.fiber * multiplier;
+                                } else {
+                                    ing.fiber = 0;
+                                }
+                            }
+                            calculatedFiber += (ing.fiber || 0);
+                            return ing;
+                        });
+                    }
+                    m.totalFiber = calculatedFiber;
+                    m.fiber = calculatedFiber;
                     return m;
                 });
             }
@@ -232,7 +255,7 @@ const app = {
         this.closeModal('addMealModal');
         // Resetiname visą patiekalo formos būseną
         this.editingMealId = null;
-        this.tempMeal = { ingredients: [], totalWeight: 0, totalKcal: 0, totalProtein: 0, totalFat: 0, totalCarbs: 0 };
+        this.tempMeal = { ingredients: [], totalWeight: 0, totalKcal: 0, totalProtein: 0, totalFat: 0, totalCarbs: 0, totalFiber: 0 };
         document.getElementById('mealName').value = '';
         document.getElementById('mealTotalWeight').innerText = '0';
         document.getElementById('mealTotalKcal').innerText = '0';
@@ -561,7 +584,7 @@ const app = {
 
         const filtered = this.data.foods.filter(f =>
             f.name.toLowerCase().includes(filterText.toLowerCase())
-        );
+        ).sort((a, b) => a.name.localeCompare(b.name, 'lt'));
 
         if (filtered.length === 0) {
             list.innerHTML = '<li class="empty-state">Produktų nerasta.</li>';
@@ -627,7 +650,8 @@ const app = {
                         kcal: this.tempMeal.totalKcal,
                         protein: this.tempMeal.totalProtein,
                         fat: this.tempMeal.totalFat,
-                        carbs: this.tempMeal.totalCarbs
+                        carbs: this.tempMeal.totalCarbs,
+                        fiber: this.tempMeal.totalFiber
                     };
                 }
                 this.editingMealId = null;
@@ -654,7 +678,7 @@ const app = {
             document.getElementById('saveMealBtn').innerText = 'Išsaugoti patiekalą';
 
             // Atstatom laikinąjį
-            this.tempMeal = { ingredients: [], totalWeight: 0, totalKcal: 0, totalProtein: 0, totalFat: 0, totalCarbs: 0 };
+            this.tempMeal = { ingredients: [], totalWeight: 0, totalKcal: 0, totalProtein: 0, totalFat: 0, totalCarbs: 0, totalFiber: 0 };
             document.getElementById('mealName').value = '';
             this.renderTempIngredients();
         });
@@ -686,7 +710,8 @@ const app = {
             totalKcal: meal.kcal,
             totalProtein: meal.protein,
             totalFat: meal.fat,
-            totalCarbs: meal.carbs
+            totalCarbs: meal.carbs,
+            totalFiber: meal.fiber || meal.totalFiber || 0
         };
 
         // Atnaujinami sumų rodiniai
@@ -739,7 +764,8 @@ const app = {
                 kcal: (food.kcal * ratio),
                 protein: (food.protein * ratio),
                 fat: (food.fat * ratio),
-                carbs: (food.carbs * ratio)
+                carbs: (food.carbs * ratio),
+                fiber: ((food.fiber || 0) * ratio)
             };
             this.tempMeal.ingredients.push(ingItem);
         } else {
@@ -784,7 +810,7 @@ const app = {
             protein += i.protein;
             fat += i.fat;
             carbs += i.carbs;
-            fiber += i.fiber;
+            fiber += (i.fiber || 0);
         });
 
         this.tempMeal.totalWeight = weight;
@@ -838,7 +864,7 @@ const app = {
 
         const filtered = this.data.meals.filter(m =>
             m.name.toLowerCase().includes(filterText.toLowerCase())
-        );
+        ).sort((a, b) => a.name.localeCompare(b.name, 'lt'));
 
         if (filtered.length === 0) {
             list.innerHTML = `<li class="empty-state">${filterText ? 'Patiekalų nerasta.' : 'Jūs dar nesukūrėte jokių patiekalų.'}</li>`;
@@ -1916,10 +1942,10 @@ const app = {
             const brand = p.brands ? `(${p.brands.split(',')[0]})` : '';
 
             const nutriments = p.nutriments || {};
-            const protein = Math.round(nutriments.proteins_100g || 0);
-            const fat = Math.round(nutriments.fat_100g || 0);
-            const carbs = Math.round(nutriments.carbohydrates_100g || 0);
-            const fiber = Math.round(nutriments.fiber_100g || 0);
+            const protein = Math.round((nutriments.proteins_100g || 0) * 10) / 10;
+            const fat = Math.round((nutriments.fat_100g || 0) * 10) / 10;
+            const carbs = Math.round((nutriments.carbohydrates_100g || 0) * 10) / 10;
+            const fiber = Math.round((nutriments.fiber_100g || 0) * 10) / 10;
 
             const li = document.createElement('li');
             li.className = 'glass-card mt-10';
@@ -2022,10 +2048,10 @@ const app = {
                     this.importOnlineFood(
                         encodeURIComponent(fullName), 
                         Math.round(kcal), 
-                        Math.round(n.proteins_100g || 0), 
-                        Math.round(n.fat_100g || 0), 
-                        Math.round(n.carbohydrates_100g || 0), 
-                        Math.round(n.fiber_100g || 0)
+                        Math.round((n.proteins_100g || 0) * 10) / 10, 
+                        Math.round((n.fat_100g || 0) * 10) / 10, 
+                        Math.round((n.carbohydrates_100g || 0) * 10) / 10, 
+                        Math.round((n.fiber_100g || 0) * 10) / 10
                     );
                 } else {
                     if (url.includes('.org')) {
