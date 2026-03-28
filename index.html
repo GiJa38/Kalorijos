@@ -19,7 +19,7 @@
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js?v=1.1').then((reg) => {
+                navigator.serviceWorker.register('sw.js?v=1.2').then((reg) => {
                     console.log('SW registruotas:', reg.scope);
                 }).catch((err) => {
                     console.log('SW klaida:', err);
@@ -39,7 +39,8 @@
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-    <link rel="stylesheet" href="style.css?v=1.1">
+    <link rel="stylesheet" href="style.css?v=1.2">
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 </head>
 
 <body>
@@ -130,6 +131,13 @@
                             <div class="progress-fill carbs-fill" style="width: 0%"></div>
                         </div>
                     </div>
+                    <div class="macro-card glass-card">
+                        <div class="macro-header">Skaidulų</div>
+                        <div class="macro-value"><span id="fiberEaten">0</span> / <span id="fiberGoal">0</span>g</div>
+                        <div class="progress-bar">
+                            <div class="progress-fill fiber-fill" style="width: 0%"></div>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="recent-meals glass-card mt-20">
@@ -171,6 +179,12 @@
                     <div class="col">
                         <button class="btn btn-primary w-100" onclick="app.openAddFoodModal()">
                             <span class="material-icons-round">add</span> Kurti
+                        </button>
+                    </div>
+                    <div class="col">
+                        <button class="btn btn-primary w-100" style="background:var(--primary)"
+                            onclick="app.startBarcodeScanner()">
+                            <span class="material-icons-round">qr_code_scanner</span> Skenuoti
                         </button>
                     </div>
                     <div class="col">
@@ -460,6 +474,10 @@
                         <label>Angliavandeniai (g)</label>
                         <input type="text" inputmode="decimal" id="newFoodCarbs" required min="0" step="0.1">
                     </div>
+                    <div class="col">
+                        <label>Skaidulos (g)</label>
+                        <input type="text" inputmode="decimal" id="newFoodFiber" required min="0" step="0.1" value="0">
+                    </div>
                 </div>
                 <button type="submit" class="btn btn-primary w-100 mt-10">Išsaugoti produktą</button>
             </form>
@@ -488,9 +506,10 @@
 
                     <div class="form-group row" style="margin-bottom: 0;">
                         <div class="col" style="flex: 2;">
-                            <select id="ingredientSelect">
-                                <option value="">- Pasirinkti -</option>
-                            </select>
+                            <input list="ingredientOptions" id="ingredientInput" placeholder="Ieškoti produkto...">
+                            <datalist id="ingredientOptions">
+                                <!-- options bus sugeneruoti per JS -->
+                            </datalist>
                         </div>
                         <div class="col" style="display: flex; gap: 5px;">
                             <input type="text" inputmode="decimal" id="ingredientWeight" placeholder="g" min="0.1"
@@ -618,7 +637,23 @@
         </div>
     </div>
 
-    <script src="app.js?v=1.1"></script>
+    <!-- Barcode Scanner Modal -->
+    <div id="barcodeScannerModal" class="modal">
+        <div class="modal-content glass" style="max-height: 90vh; display: flex; flex-direction: column;">
+            <div class="modal-header">
+                <h2>Skenuoti barkodą</h2>
+                <button class="icon-btn" onclick="app.stopBarcodeScanner()"><span
+                        class="material-icons-round">close</span></button>
+            </div>
+            <div id="barcodeReader" style="width: 100%; border-radius: 12px; overflow: hidden;"></div>
+            <div id="barcodeStatus" class="text-center mt-20" style="font-size: 14px; color: var(--text-muted);">
+                Nutaikykite kamerą į produkto barkodą
+            </div>
+            <button class="btn btn-primary w-100 mt-20" onclick="app.stopBarcodeScanner()">Atšaukti</button>
+        </div>
+    </div>
+
+    <script src="app.js?v=1.2"></script>
 </body>
 
 </html>

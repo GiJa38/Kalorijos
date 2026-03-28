@@ -16,7 +16,7 @@ const app = {
             goal: 0,
             eatBackCalories: true,
             tdee: 0, // Total Daily Energy Expenditure (Poreikis)
-            macros: { protein: 0, fat: 0, carbs: 0 }
+            macros: { protein: 0, fat: 0, carbs: 0, fiber: 0 }
         },
         foods: [],
         meals: [], // Sukurti patiekalai/receptai
@@ -27,7 +27,8 @@ const app = {
             totalKcal: 0,
             totalProtein: 0,
             totalFat: 0,
-            totalCarbs: 0
+            totalCarbs: 0,
+            totalFiber: 0
         },
         history: []
     },
@@ -39,7 +40,8 @@ const app = {
         totalKcal: 0,
         totalProtein: 0,
         totalFat: 0,
-        totalCarbs: 0
+        totalCarbs: 0,
+        totalFiber: 0
     },
 
     init() {
@@ -141,8 +143,34 @@ const app = {
                     date: today,
                     trainingKcal: 0,
                     items: [],
-                    totalKcal: 0, totalProtein: 0, totalFat: 0, totalCarbs: 0
+                    totalKcal: 0, totalProtein: 0, totalFat: 0, totalCarbs: 0, totalFiber: 0
                 };
+            }
+
+            // Atgalinis suderinamumas / Migracija: Skaidulos
+            if (parsed.profile && parsed.profile.macros && parsed.profile.macros.fiber === undefined) {
+                parsed.profile.macros.fiber = 0;
+            }
+            if (parsed.consumedToday && parsed.consumedToday.totalFiber === undefined) {
+                parsed.consumedToday.totalFiber = 0;
+            }
+            if (parsed.history) {
+                parsed.history = parsed.history.map(h => {
+                    if (h.totalFiber === undefined) h.totalFiber = 0;
+                    return h;
+                });
+            }
+            if (parsed.foods) {
+                parsed.foods = parsed.foods.map(f => {
+                    if (f.fiber === undefined) f.fiber = 0;
+                    return f;
+                });
+            }
+            if (parsed.meals) {
+                parsed.meals = parsed.meals.map(m => {
+                    if (m.totalFiber === undefined) m.totalFiber = 0;
+                    return m;
+                });
             }
 
             // Atgalinis suderinamumas senesniems išsaugojimams
@@ -299,9 +327,10 @@ const app = {
         const protein = Math.round((targetKcal * 0.30) / 4);
         const fat = Math.round((targetKcal * 0.30) / 9);
         const carbs = Math.round((targetKcal * 0.40) / 4);
+        const fiber = Math.round((targetKcal / 1000) * 14); // 14g skaidulų kiekvienam 1000 kcal
 
         p.tdee = targetKcal;
-        p.macros = { protein, fat, carbs };
+        p.macros = { protein, fat, carbs, fiber };
 
         document.getElementById('profileTDEE').innerText = p.tdee;
         this.updateSummaryUI();
@@ -360,14 +389,20 @@ const app = {
         document.getElementById('carbsEaten').innerText = Math.round(c.totalCarbs);
         document.getElementById('carbsGoal').innerText = p.macros.carbs;
 
+        document.getElementById('fiberEaten').innerText = Math.round(c.totalFiber || 0);
+        document.getElementById('fiberGoal').innerText = p.macros.fiber || 0;
+
         // Atnaujinam progress bar'us
         const pPercent = p.macros.protein ? Math.min((c.totalProtein / p.macros.protein) * 100, 100) : 0;
         const fPercent = p.macros.fat ? Math.min((c.totalFat / p.macros.fat) * 100, 100) : 0;
         const cPercent = p.macros.carbs ? Math.min((c.totalCarbs / p.macros.carbs) * 100, 100) : 0;
+        const fibPercent = p.macros.fiber ? Math.min(((c.totalFiber || 0) / p.macros.fiber) * 100, 100) : 0;
 
         document.querySelector('.protein-fill').style.width = `${pPercent}%`;
         document.querySelector('.fat-fill').style.width = `${fPercent}%`;
         document.querySelector('.carbs-fill').style.width = `${cPercent}%`;
+        const fibFill = document.querySelector('.fiber-fill');
+        if (fibFill) fibFill.style.width = `${fibPercent}%`;
 
         // Progress circle (Circular progress)
         const circle = document.querySelector('.circular-progress');
@@ -423,6 +458,7 @@ const app = {
             this.data.consumedToday.totalProtein -= item.protein;
             this.data.consumedToday.totalFat -= item.fat;
             this.data.consumedToday.totalCarbs -= item.carbs;
+            this.data.consumedToday.totalFiber -= (item.fiber || 0);
             this.data.consumedToday.items = this.data.consumedToday.items.filter(i => i.id !== id);
             this.saveData();
             this.updateSummaryUI();
@@ -444,7 +480,8 @@ const app = {
                 kcal: parseFloat(document.getElementById('newFoodKcal').value.replace(',', '.')),
                 protein: parseFloat(document.getElementById('newFoodProtein').value.replace(',', '.')),
                 fat: parseFloat(document.getElementById('newFoodFat').value.replace(',', '.')),
-                carbs: parseFloat(document.getElementById('newFoodCarbs').value.replace(',', '.'))
+                carbs: parseFloat(document.getElementById('newFoodCarbs').value.replace(',', '.')),
+                fiber: parseFloat(document.getElementById('newFoodFiber').value.replace(',', '.')) || 0
             };
 
             if (this.editingFoodId !== null) {
@@ -504,6 +541,7 @@ const app = {
         document.getElementById('newFoodProtein').value = food.protein;
         document.getElementById('newFoodFat').value = food.fat;
         document.getElementById('newFoodCarbs').value = food.carbs;
+        document.getElementById('newFoodFiber').value = food.fiber || 0;
 
         document.getElementById('addProductModal').querySelector('h2').innerText = 'Redaguoti Produktą';
         document.getElementById('addProductModal').querySelector('button[type="submit"]').innerText = 'Išsaugoti pakeitimus';
@@ -540,7 +578,7 @@ const app = {
                 <div>
                     <strong>${food.name}</strong>
                     <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
-                        ${food.unit === 'vnt' ? `1 vnt` : `100${food.unit || 'g'}`}: ${food.kcal} kcal | B: ${food.protein}g | R: ${food.fat}g | A: ${food.carbs}g
+                        ${food.unit === 'vnt' ? `1 vnt` : `100${food.unit || 'g'}`}: ${food.kcal} kcal | B: ${food.protein}g | R: ${food.fat}g | A: ${food.carbs}g | S: ${food.fiber || 0}g
                     </div>
                 </div>
                 <div style="display: flex; gap: 5px;">
@@ -603,7 +641,8 @@ const app = {
                     kcal: this.tempMeal.totalKcal,
                     protein: this.tempMeal.totalProtein,
                     fat: this.tempMeal.totalFat,
-                    carbs: this.tempMeal.totalCarbs
+                    carbs: this.tempMeal.totalCarbs,
+                    fiber: this.tempMeal.totalFiber
                 };
                 this.data.meals.push(newMeal);
             }
@@ -622,15 +661,15 @@ const app = {
     },
 
     updateIngredientSelect() {
-        const select = document.getElementById('ingredientSelect');
-        select.innerHTML = '<option value="">- Pasirinkti -</option>';
+        const datalist = document.getElementById('ingredientOptions');
+        if (!datalist) return;
+        datalist.innerHTML = '';
         // Surūšiuojam abėcėlės tvarka
         const sortedFoods = [...this.data.foods].sort((a, b) => a.name.localeCompare(b.name));
         sortedFoods.forEach(food => {
             const option = document.createElement('option');
-            option.value = food.id;
-            option.text = food.name;
-            select.appendChild(option);
+            option.value = food.name;
+            datalist.appendChild(option);
         });
     },
 
@@ -670,21 +709,20 @@ const app = {
     },
 
     addIngredientToMeal() {
-        const select = document.getElementById('ingredientSelect');
+        const inputStr = document.getElementById('ingredientInput').value.trim();
         const weightInput = document.getElementById('ingredientWeight');
         const unitSelect = document.getElementById('ingredientUnit');
 
-        const foodId = parseInt(select.value);
         const amount = parseFloat(weightInput.value.replace(',', '.'));
         const unitValue = unitSelect.value; // gali būti "vnt" arba skaičius
         const isVnt = unitValue === 'vnt';
 
-        if (!foodId || !amount || amount <= 0) {
+        if (!inputStr || !amount || amount <= 0) {
             return alert('Pasirinkite produktą ir įveskite kiekį!');
         }
 
-        const food = this.data.foods.find(f => f.id === foodId);
-        if (!food) return;
+        const food = this.data.foods.find(f => f.name === inputStr);
+        if (!food) return alert('Toks produktas nerastas. Pasirinkite iš sąrašo!');
 
         if (!isVnt) {
             const unitMultiplierNum = parseFloat(unitValue) || 1;
@@ -718,7 +756,8 @@ const app = {
                 kcal: food.kcal * amount,
                 protein: food.protein * amount,
                 fat: food.fat * amount,
-                carbs: food.carbs * amount
+                carbs: food.carbs * amount,
+                fiber: (food.fiber || 0) * amount
             };
             this.tempMeal.ingredients.push(ingItem);
         }
@@ -726,7 +765,7 @@ const app = {
         this.renderTempIngredients();
 
         // Išvalom formą
-        select.value = '';
+        document.getElementById('ingredientInput').value = '';
         weightInput.value = '';
     },
 
@@ -737,7 +776,7 @@ const app = {
     },
 
     calculateTempMeal() {
-        let weight = 0, kcal = 0, protein = 0, fat = 0, carbs = 0;
+        let weight = 0, kcal = 0, protein = 0, fat = 0, carbs = 0, fiber = 0;
 
         this.tempMeal.ingredients.forEach(i => {
             weight += i.weight;
@@ -745,6 +784,7 @@ const app = {
             protein += i.protein;
             fat += i.fat;
             carbs += i.carbs;
+            fiber += i.fiber;
         });
 
         this.tempMeal.totalWeight = weight;
@@ -752,6 +792,7 @@ const app = {
         this.tempMeal.totalProtein = protein;
         this.tempMeal.totalFat = fat;
         this.tempMeal.totalCarbs = carbs;
+        this.tempMeal.totalFiber = fiber;
 
         document.getElementById('mealTotalWeight').innerText = Math.round(weight);
         document.getElementById('mealTotalKcal').innerText = Math.round(kcal);
@@ -816,13 +857,14 @@ const app = {
             const protPer100 = meal.totalWeight > 0 ? ((meal.protein || meal.totalProtein || 0) / meal.totalWeight) * 100 : 0;
             const fatPer100 = meal.totalWeight > 0 ? ((meal.fat || meal.totalFat || 0) / meal.totalWeight) * 100 : 0;
             const carbPer100 = meal.totalWeight > 0 ? ((meal.carbs || meal.totalCarbs || 0) / meal.totalWeight) * 100 : 0;
+            const fiberPer100 = meal.totalWeight > 0 ? ((meal.fiber || meal.totalFiber || 0) / meal.totalWeight) * 100 : 0;
 
             li.innerHTML = `
                 <div>
                     <strong>${meal.name}</strong>
                     <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
                         Visas svoris: ${Math.round(meal.totalWeight)}g | Viso: ${Math.round(meal.kcal)} kcal<br>
-                        <em>100g: ~${Math.round(kcalPer100)} kcal | B: ${protPer100.toFixed(1)}g | R: ${fatPer100.toFixed(1)}g | A: ${carbPer100.toFixed(1)}g</em>
+                        <em>100g: ~${Math.round(kcalPer100)} kcal | B: ${protPer100.toFixed(1)}g | R: ${fatPer100.toFixed(1)}g | A: ${carbPer100.toFixed(1)}g | S: ${fiberPer100.toFixed(1)}g</em>
                     </div>
                 </div>
                 <div style="display: flex; gap: 5px;">
@@ -980,6 +1022,7 @@ const app = {
             consumed.protein = sourceItem.protein * ratio;
             consumed.fat = sourceItem.fat * ratio;
             consumed.carbs = sourceItem.carbs * ratio;
+            consumed.fiber = (sourceItem.fiber || 0) * ratio;
 
             // Pridedam į dienos suvestinę
             const cT = this.data.consumedToday;
@@ -988,6 +1031,7 @@ const app = {
             cT.totalProtein += consumed.protein;
             cT.totalFat += consumed.fat;
             cT.totalCarbs += consumed.carbs;
+            cT.totalFiber += (consumed.fiber || 0);
 
             this.saveData();
             this.updateSummaryUI();
@@ -1033,7 +1077,7 @@ const app = {
                     <div>
                         <div style="font-weight: 600; color: var(--primary)">${Math.round(item.kcal)} kcal</div>
                         <div style="font-size: 10px; color: var(--text-muted)">
-                            B:${Math.round(item.protein)} R:${Math.round(item.fat)} A:${Math.round(item.carbs)}
+                            B:${Math.round(item.protein)} R:${Math.round(item.fat)} A:${Math.round(item.carbs)} S:${Math.round(item.fiber || 0)}
                         </div>
                     </div>
                     <button class="icon-btn" onclick="app.deleteConsumedItem(${item.id})" title="Pašalinti">
@@ -1566,9 +1610,9 @@ const app = {
     },
 
     // --- AI Asistentas: Ką suvalgyti? ---
-    // --- AI Asistentas: Ką suvalgyti? ---
     generateMealSuggestion() {
         const p = this.data.profile;
+// ... (logika palikta ta pati)
         const c = this.data.consumedToday;
 
         if (!p || !p.weight) return alert("Pirmiausia užpildykite profilį!");
@@ -1649,10 +1693,10 @@ const app = {
         this.showModal('aiSuggestModal');
     },
 
-    // --- IŠORINĖ API (OpenFoodFacts) INTERGRACIJA ---
     setupOnlineSearch() {
         const btn = document.getElementById('onlineSearchBtn');
         const input = document.getElementById('onlineSearchInput');
+        if (!btn || !input) return;
 
         input.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') this.searchOpenFoodFacts(input.value);
@@ -1663,70 +1707,193 @@ const app = {
         });
     },
 
-    searchOpenFoodFacts(query) {
+    basicFoodsDatabase: [
+        { product_name: "Obuolys", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 52, proteins_100g: 0.3, fat_100g: 0.2, carbohydrates_100g: 14, fiber_100g: 2.4 } },
+        { product_name: "Bananas", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 89, proteins_100g: 1.1, fat_100g: 0.3, carbohydrates_100g: 23, fiber_100g: 2.6 } },
+        { product_name: "Kriaušė", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 57, proteins_100g: 0.4, fat_100g: 0.1, carbohydrates_100g: 15, fiber_100g: 3.1 } },
+        { product_name: "Apelsinas", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 47, proteins_100g: 0.9, fat_100g: 0.1, carbohydrates_100g: 12, fiber_100g: 2.4 } },
+        { product_name: "Mandarinai", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 53, proteins_100g: 0.8, fat_100g: 0.3, carbohydrates_100g: 13, fiber_100g: 1.8 } },
+        { product_name: "Kiviai", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 61, proteins_100g: 1.1, fat_100g: 0.5, carbohydrates_100g: 15, fiber_100g: 3 } },
+        { product_name: "Braškės", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 32, proteins_100g: 0.7, fat_100g: 0.3, carbohydrates_100g: 7.7, fiber_100g: 2 } },
+        { product_name: "Šilauogės (Mėlynės)", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 57, proteins_100g: 0.7, fat_100g: 0.3, carbohydrates_100g: 14, fiber_100g: 2.4 } },
+        { product_name: "Vyšnios", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 50, proteins_100g: 1, fat_100g: 0.3, carbohydrates_100g: 12, fiber_100g: 1.6 } },
+        { product_name: "Slyva", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 46, proteins_100g: 0.7, fat_100g: 0.3, carbohydrates_100g: 11, fiber_100g: 1.4 } },
+        { product_name: "Vynuogės", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 69, proteins_100g: 0.7, fat_100g: 0.2, carbohydrates_100g: 18, fiber_100g: 0.9 } },
+        { product_name: "Ananasas", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 50, proteins_100g: 0.5, fat_100g: 0.1, carbohydrates_100g: 13, fiber_100g: 1.4 } },
+        { product_name: "Melionas", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 34, proteins_100g: 0.8, fat_100g: 0.2, carbohydrates_100g: 8, fiber_100g: 0.9 } },
+        { product_name: "Arbūzas", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 30, proteins_100g: 0.6, fat_100g: 0.2, carbohydrates_100g: 8, fiber_100g: 0.4 } },
+        { product_name: "Avietės", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 52, proteins_100g: 1.2, fat_100g: 0.7, carbohydrates_100g: 12, fiber_100g: 6.5 } },
+        { product_name: "Gervuogės", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 43, proteins_100g: 1.4, fat_100g: 0.5, carbohydrates_100g: 10, fiber_100g: 5 } },
+        { product_name: "Persikas", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 39, proteins_100g: 0.9, fat_100g: 0.2, carbohydrates_100g: 10, fiber_100g: 1.5 } },
+        { product_name: "Nektarinas", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 44, proteins_100g: 1, fat_100g: 0.3, carbohydrates_100g: 11, fiber_100g: 1.7 } },
+        { product_name: "Abrikosas", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 48, proteins_100g: 1.4, fat_100g: 0.4, carbohydrates_100g: 11, fiber_100g: 2 } },
+        { product_name: "Greipfrutas", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 42, proteins_100g: 0.8, fat_100g: 0.1, carbohydrates_100g: 11, fiber_100g: 1.6 } },
+        { product_name: "Mango (Mangas)", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 60, proteins_100g: 0.8, fat_100g: 0.4, carbohydrates_100g: 15, fiber_100g: 1.6 } },
+        { product_name: "Granatas", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 83, proteins_100g: 1.7, fat_100g: 1.2, carbohydrates_100g: 19, fiber_100g: 4 } },
+        { product_name: "Pomidoras", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 18, proteins_100g: 0.9, fat_100g: 0.2, carbohydrates_100g: 3.9, fiber_100g: 1.2 } },
+        { product_name: "Agurkas", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 15, proteins_100g: 0.6, fat_100g: 0.1, carbohydrates_100g: 3.6, fiber_100g: 0.5 } },
+        { product_name: "Paprika", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 31, proteins_100g: 1, fat_100g: 0.3, carbohydrates_100g: 6, fiber_100g: 2 } },
+        { product_name: "Svogūnas", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 40, proteins_100g: 1.1, fat_100g: 0.1, carbohydrates_100g: 9.3, fiber_100g: 1.7 } },
+        { product_name: "Česnakas", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 149, proteins_100g: 6.4, fat_100g: 0.5, carbohydrates_100g: 33, fiber_100g: 2.1 } },
+        { product_name: "Morka", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 41, proteins_100g: 0.9, fat_100g: 0.2, carbohydrates_100g: 9.6, fiber_100g: 2.8 } },
+        { product_name: "Avokadas", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 160, proteins_100g: 2, fat_100g: 15, carbohydrates_100g: 9, fiber_100g: 7 } },
+        { product_name: "Cukinija", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 17, proteins_100g: 1.2, fat_100g: 0.3, carbohydrates_100g: 3, fiber_100g: 1 } },
+        { product_name: "Baklažanas", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 25, proteins_100g: 1, fat_100g: 0.2, carbohydrates_100g: 6, fiber_100g: 3 } },
+        { product_name: "Brokoliai", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 34, proteins_100g: 2.8, fat_100g: 0.4, carbohydrates_100g: 7, fiber_100g: 2.6 } },
+        { product_name: "Žiedinis kopūstas (Kalafioras)", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 25, proteins_100g: 2, fat_100g: 0.3, carbohydrates_100g: 5, fiber_100g: 2 } },
+        { product_name: "Baltagūžis kopūstas", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 25, proteins_100g: 1.3, fat_100g: 0.1, carbohydrates_100g: 6, fiber_100g: 2.5 } },
+        { product_name: "Raudonasis kopūstas", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 31, proteins_100g: 1.4, fat_100g: 0.2, carbohydrates_100g: 7, fiber_100g: 2.1 } },
+        { product_name: "Pekino kopūstas", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 16, proteins_100g: 1.2, fat_100g: 0.2, carbohydrates_100g: 3, fiber_100g: 1.2 } },
+        { product_name: "Briuselio kopūstai", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 43, proteins_100g: 3.4, fat_100g: 0.3, carbohydrates_100g: 9, fiber_100g: 3.8 } },
+        { product_name: "Ridikėliai", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 16, proteins_100g: 0.7, fat_100g: 0.1, carbohydrates_100g: 3.4, fiber_100g: 1.6 } },
+        { product_name: "Salierai (lapkočiai)", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 16, proteins_100g: 0.7, fat_100g: 0.2, carbohydrates_100g: 3, fiber_100g: 1.6 } },
+        { product_name: "Burokėliai (žali)", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 43, proteins_100g: 1.6, fat_100g: 0.2, carbohydrates_100g: 10, fiber_100g: 2.8 } },
+        { product_name: "Špinatai", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 23, proteins_100g: 2.9, fat_100g: 0.4, carbohydrates_100g: 4, fiber_100g: 2.2 } },
+        { product_name: "Poras", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 61, proteins_100g: 1.5, fat_100g: 0.3, carbohydrates_100g: 14, fiber_100g: 1.8 } },
+        { product_name: "Kukurūzai (saldieji)", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 86, proteins_100g: 3.3, fat_100g: 1.4, carbohydrates_100g: 19, fiber_100g: 2 } },
+        { product_name: "Žirneliai (žalieji)", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 81, proteins_100g: 5.4, fat_100g: 0.4, carbohydrates_100g: 14, fiber_100g: 5 } },
+        { product_name: "Šparaginės pupelės", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 31, proteins_100g: 1.8, fat_100g: 0.2, carbohydrates_100g: 7, fiber_100g: 2.7 } },
+        { product_name: "Moliūgas", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 26, proteins_100g: 1, fat_100g: 0.1, carbohydrates_100g: 6, fiber_100g: 0.5 } },
+        { product_name: "Smydrai (Šparagai)", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 20, proteins_100g: 2.2, fat_100g: 0.1, carbohydrates_100g: 4, fiber_100g: 2.1 } },
+        { product_name: "Saldžioji bulvė (Batatas)", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 86, proteins_100g: 1.6, fat_100g: 0.1, carbohydrates_100g: 20, fiber_100g: 3 } },
+        { product_name: "Bulvės (žalios)", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 77, proteins_100g: 2, fat_100g: 0.1, carbohydrates_100g: 17, fiber_100g: 2.2 } },
+        { product_name: "Salotų lapai (Iceberg kt.)", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 14, proteins_100g: 0.9, fat_100g: 0.1, carbohydrates_100g: 2.9, fiber_100g: 1.2 } },
+        { product_name: "Kiaušinis", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 143, proteins_100g: 13, fat_100g: 10, carbohydrates_100g: 0.7, fiber_100g: 0 } },
+        { product_name: "Vištienos krūtinėlė (žalia)", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 110, proteins_100g: 23, fat_100g: 1.2, carbohydrates_100g: 0, fiber_100g: 0 } },
+        { product_name: "Vištienos krūtinėlė (kepta/virta)", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 165, proteins_100g: 31, fat_100g: 3.6, carbohydrates_100g: 0, fiber_100g: 0 } },
+        { product_name: "Kiauliena (liesa)", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 143, proteins_100g: 21, fat_100g: 6, carbohydrates_100g: 0, fiber_100g: 0 } },
+        { product_name: "Jautiena (liesa)", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 250, proteins_100g: 26, fat_100g: 15, carbohydrates_100g: 0, fiber_100g: 0 } },
+        { product_name: "Lašiša (žalia)", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 208, proteins_100g: 20, fat_100g: 13, carbohydrates_100g: 0, fiber_100g: 0 } },
+        { product_name: "Pienas 2.5%", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 54, proteins_100g: 3.2, fat_100g: 2.5, carbohydrates_100g: 4.7, fiber_100g: 0 } },
+        { product_name: "Kefyras 2.5%", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 50, proteins_100g: 2.8, fat_100g: 2.5, carbohydrates_100g: 4, fiber_100g: 0 } },
+        { product_name: "Varškė 9%", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 159, proteins_100g: 16, fat_100g: 9, carbohydrates_100g: 2, fiber_100g: 0 } },
+        { product_name: "Varškė liesa (0.5%)", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 85, proteins_100g: 18, fat_100g: 0.5, carbohydrates_100g: 1.8, fiber_100g: 0 } },
+        { product_name: "Graikiškas jogurtas", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 97, proteins_100g: 9, fat_100g: 5, carbohydrates_100g: 4, fiber_100g: 0 } },
+        { product_name: "Sūris Fermentinis (~45%)", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 345, proteins_100g: 25, fat_100g: 27, carbohydrates_100g: 1, fiber_100g: 0 } },
+        { product_name: "Ryžiai (nevirti)", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 360, proteins_100g: 7, fat_100g: 1, carbohydrates_100g: 80, fiber_100g: 1 } },
+        { product_name: "Grikių kruopos (nevirtos)", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 343, proteins_100g: 13, fat_100g: 3.4, carbohydrates_100g: 71, fiber_100g: 10 } },
+        { product_name: "Avižiniai dribsniai", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 389, proteins_100g: 17, fat_100g: 7, carbohydrates_100g: 66, fiber_100g: 10 } },
+        { product_name: "Makaronai (nevirti)", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 371, proteins_100g: 13, fat_100g: 1.5, carbohydrates_100g: 74, fiber_100g: 3 } },
+        { product_name: "Kvietiniai miltai", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 364, proteins_100g: 10, fat_100g: 1, carbohydrates_100g: 76, fiber_100g: 3 } },
+        { product_name: "Ruginė juoda duona", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 259, proteins_100g: 6, fat_100g: 1, carbohydrates_100g: 56, fiber_100g: 6 } },
+        { product_name: "Batono riekė", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 265, proteins_100g: 9, fat_100g: 3.2, carbohydrates_100g: 49, fiber_100g: 2.7 } },
+        { product_name: "Sviestas 82%", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 717, proteins_100g: 0.8, fat_100g: 82, carbohydrates_100g: 0.8, fiber_100g: 0 } },
+        { product_name: "Alyvuogių aliejus", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 884, proteins_100g: 0, fat_100g: 100, carbohydrates_100g: 0, fiber_100g: 0 } },
+        { product_name: "Saulėgrąžų aliejus", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 884, proteins_100g: 0, fat_100g: 100, carbohydrates_100g: 0, fiber_100g: 0 } },
+        { product_name: "Graikiniai riešutai", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 654, proteins_100g: 15, fat_100g: 65, carbohydrates_100g: 14, fiber_100g: 7 } },
+        { product_name: "Migdolai", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 579, proteins_100g: 21, fat_100g: 50, carbohydrates_100g: 22, fiber_100g: 13 } },
+        { product_name: "Žemės riešutų sviestas", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 588, proteins_100g: 25, fat_100g: 50, carbohydrates_100g: 20, fiber_100g: 6 } },
+        { product_name: "Tunas (savo sultyse)", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 116, proteins_100g: 26, fat_100g: 1, carbohydrates_100g: 0, fiber_100g: 0 } },
+        { product_name: "Tunas (aliejuje)", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 198, proteins_100g: 29, fat_100g: 8, carbohydrates_100g: 0, fiber_100g: 0 } },
+        { product_name: "Silkių filė (aliejuje)", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 250, proteins_100g: 18, fat_100g: 20, carbohydrates_100g: 0, fiber_100g: 0 } },
+        { product_name: "Medus", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 304, proteins_100g: 0.3, fat_100g: 0, carbohydrates_100g: 82, fiber_100g: 0.2 } },
+        { product_name: "Cukrus", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 387, proteins_100g: 0, fat_100g: 0, carbohydrates_100g: 100, fiber_100g: 0 } },
+        { product_name: "Juodas šokoladas (70%)", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 598, proteins_100g: 7.8, fat_100g: 42, carbohydrates_100g: 36, fiber_100g: 10 } },
+        { product_name: "Pieninis šokoladas", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 535, proteins_100g: 7.6, fat_100g: 29, carbohydrates_100g: 59, fiber_100g: 3.4 } },
+        { product_name: "Grikiai (virti)", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 92, proteins_100g: 3.4, fat_100g: 0.6, carbohydrates_100g: 20, fiber_100g: 2.7 } },
+        { product_name: "Ryžiai (virti)", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 130, proteins_100g: 2.7, fat_100g: 0.3, carbohydrates_100g: 28, fiber_100g: 0.4 } },
+        { product_name: "Makaronai (virti)", brands: "Baziniai", nutriments: { 'energy-kcal_100g': 158, proteins_100g: 5.8, fat_100g: 0.9, carbohydrates_100g: 31, fiber_100g: 1.8 } }
+    ],
+
+    searchOpenFoodFacts(query, customUrl = null) {
         if (!query || query.trim().length === 0) return;
 
         const loader = document.getElementById('onlineLoader');
         const list = document.getElementById('onlineSearchResults');
 
-        loader.classList.remove('hidden');
-        list.innerHTML = '';
+        if (!loader || !list) return;
 
-        // Formuojame Open Food Facts Užklausą. page_size apriboja rezultatų skaičių
-        const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page_size=15`;
+        loader.classList.remove('hidden');
+        if (!customUrl) list.innerHTML = '';
+
+        // Pirmiausia surandame atitikmenis tarp mūsų suvestų bazinių ingredientų (lietuvybių)
+        const queryLower = query.toLowerCase().trim();
+        const localMatches = this.basicFoodsDatabase.filter(food => 
+            food.product_name.toLowerCase().includes(queryLower)
+        );
+
+        const url = customUrl || `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page_size=15`;
 
         fetch(url)
-            .then(res => res.json())
+            .then(res => {
+                if (!res.ok) throw new Error(`Serverio klaida: ${res.status}`);
+                return res.json();
+            })
             .then(data => {
                 loader.classList.add('hidden');
 
-                if (!data.products || data.products.length === 0) {
-                    list.innerHTML = '<li class="empty-state">Rezultatų nerasta. Bandykite anglišką žodį arba kitą pavadinimą.</li>';
+                const productsToRender = [];
+                
+                // Pridedame savo vietinius (lietuviškus, nebrendinius) rezultatus pradžioje
+                if (localMatches.length > 0) {
+                    productsToRender.push(...localMatches);
+                }
+
+                if (data.products && data.products.length > 0) {
+                    productsToRender.push(...data.products);
+                }
+
+                if (productsToRender.length === 0) {
+                    list.innerHTML = '<li class="empty-state">Rezultatų nerasta. Bandykite anglišką žodį arba naudokite barkodų skenerį.</li>';
                     return;
                 }
 
-                this.renderOnlineSearchResults(data.products);
+                this.renderOnlineSearchResults(productsToRender);
             })
             .catch(err => {
-                loader.classList.add('hidden');
-                list.innerHTML = '<li class="empty-state" style="color:var(--danger)">Įvyko klaida jungiantis prie duomenų bazės. Patikrinkite interneto ryšį.</li>';
                 console.error('API Error:', err);
+                
+                if (url.includes('.org')) {
+                    this.searchOpenFoodFacts(query, url.replace('.org', '.net'));
+                    return;
+                }
+
+                loader.classList.add('hidden');
+                
+                // Nors interetas neveikia ar API klaida, PARODOM ką turime vietinėje bazėje (jeigu radom)
+                if (localMatches.length > 0) {
+                    this.renderOnlineSearchResults(localMatches);
+                    list.innerHTML += `<li class="empty-state" style="color:var(--text-muted); font-size:12px; margin-top:20px;">Nepavyko susisiekti su išoriniu serveriu dėl pilnų rezultatų. Parodyti tik baziniai produktai.</li>`;
+                } else {
+                    list.innerHTML = `
+                        <li class="empty-state" style="color:var(--danger)">
+                            <strong>Nepavyko susisiekti su duomenų baze.</strong><br>
+                            <small>${err.message}</small>
+                        </li>`;
+                }
             });
     },
 
     renderOnlineSearchResults(products) {
         const list = document.getElementById('onlineSearchResults');
+        if (!list) return;
         list.innerHTML = '';
 
-        // Prafiltruojame rezultatus, imame tik tuos, kurie turi energetinę vertę
         const validProducts = [];
         products.forEach(p => {
             const nutriments = p.nutriments || {};
-            // bandom rasti kcal
-            let kcal = nutriments['energy-kcal_100g'];
-            if (kcal === undefined && nutriments['energy_100g']) {
-                kcal = nutriments['energy_100g'] / 4.184; // paversti is kJ į Kcal
-            }
+            let kcal = nutriments['energy-kcal_100g'] || (nutriments['energy_100g'] / 4.184);
             if (kcal !== undefined && kcal >= 0) {
                 validProducts.push({ p, kcal });
             }
         });
 
         if (validProducts.length === 0) {
-            list.innerHTML = '<li class="empty-state">Rasti produktai sistemoje neturi maistingumo informacijos.</li>';
+            list.innerHTML = '<li class="empty-state">Trūksta duomenų.</li>';
             return;
         }
 
         validProducts.forEach(item => {
             const p = item.p;
             const kcal = Math.round(item.kcal);
-            const name = p.product_name || p.generic_name || 'Nežinomas produktas';
+            const name = p.product_name || p.generic_name || 'Produktas';
             const brand = p.brands ? `(${p.brands.split(',')[0]})` : '';
 
             const nutriments = p.nutriments || {};
             const protein = Math.round(nutriments.proteins_100g || 0);
             const fat = Math.round(nutriments.fat_100g || 0);
             const carbs = Math.round(nutriments.carbohydrates_100g || 0);
+            const fiber = Math.round(nutriments.fiber_100g || 0);
 
             const li = document.createElement('li');
             li.className = 'glass-card mt-10';
@@ -1740,38 +1907,115 @@ const app = {
                 <div>
                     <strong>${name} ${brand}</strong>
                     <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
-                        100g: <strong>${kcal} kcal</strong> | B: ${protein}g | R: ${fat}g | A: ${carbs}g
+                        100g: <strong>${kcal} kcal</strong> | B: ${protein}g | R: ${fat}g | A: ${carbs}g | S: ${fiber}g
                     </div>
                 </div>
-                <button class="btn btn-primary" style="font-size:12px; padding: 6px; background: var(--success);" onclick="app.importOnlineFood('${safeNameStr}', ${kcal}, ${protein}, ${fat}, ${carbs})">
-                    <span class="material-icons-round" style="font-size:16px;">download</span> Išsaugoti pas mane
+                <button class="btn btn-primary" style="font-size:12px; padding: 6px; background: var(--success);" onclick="app.importOnlineFood('${safeNameStr}', ${kcal}, ${protein}, ${fat}, ${carbs}, ${fiber})">
+                    <span class="material-icons-round" style="font-size:16px;">download</span> Išsaugoti
                 </button>
             `;
             list.appendChild(li);
         });
     },
 
-    importOnlineFood(encodedName, kcal, protein, fat, carbs) {
+    importOnlineFood(encodedName, kcal, protein, fat, carbs, fiber = 0) {
         const name = decodeURIComponent(encodedName);
-        const newFood = {
+        
+        if (!confirm(`Pridėti produktą?\n\n${name}\n${kcal} kcal | B: ${protein}g | R: ${fat}g | A: ${carbs}g | S: ${fiber}g`)) {
+            return;
+        }
+
+        this.data.foods.push({
             id: Date.now(),
             name: name,
             kcal: kcal,
             protein: protein,
             fat: fat,
-            carbs: carbs
-        };
+            carbs: carbs,
+            fiber: fiber
+        });
 
-        // Išsaugome mūsų duomenų bazėje
-        this.data.foods.push(newFood);
         this.saveData();
-
-        // Atnaujinam UI vaizdus
         this.renderFoodsList();
         this.updateIngredientSelect();
 
         this.closeModal('searchOnlineModal');
-        alert(`Produktas "${name}" sėkmingai atsiųstas ir išsaugotas į jūsų sąrašą!`);
+        this.closeModal('barcodeScannerModal');
+        alert(`Išsaugota!`);
+    },
+
+    barcodeScanner: null,
+
+    startBarcodeScanner() {
+        this.showModal('barcodeScannerModal');
+        if (!this.barcodeScanner) {
+            this.barcodeScanner = new Html5Qrcode("barcodeReader");
+        }
+        const config = { fps: 10, qrbox: { width: 250, height: 150 } };
+        this.barcodeScanner.start(
+            { facingMode: "environment" }, 
+            config, 
+            (decodedText) => {
+                this.stopBarcodeScanner();
+                this.searchByBarcode(decodedText);
+            },
+            () => {}
+        ).catch(err => {
+            console.error(err);
+            document.getElementById('barcodeStatus').innerText = "Kameros klaida.";
+        });
+    },
+
+    stopBarcodeScanner() {
+        if (this.barcodeScanner) {
+            this.barcodeScanner.stop().then(() => {
+                this.closeModal('barcodeScannerModal');
+            }).catch(() => this.closeModal('barcodeScannerModal'));
+        } else {
+            this.closeModal('barcodeScannerModal');
+        }
+    },
+
+    searchByBarcode(barcode, customUrl = null) {
+        const status = document.getElementById('barcodeStatus');
+        if (status) status.innerText = `Ieškoma: ${barcode}...`;
+
+        const url = customUrl || `https://world.openfoodfacts.org/api/v2/product/${barcode}`;
+
+        fetch(url, { headers: { 'User-Agent': 'FoodTrackerApp - v1.0' } })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 1) {
+                    const p = data.product;
+                    const n = p.nutriments || {};
+                    let kcal = n['energy-kcal_100g'] || (n['energy_100g'] / 4.184);
+                    
+                    if (kcal === undefined) return alert("Trūksta duomenų.");
+
+                    const fullName = `${p.product_name || 'Produktas'} ${p.brands ? '(' + p.brands.split(',')[0] + ')' : ''}`.trim();
+                    this.importOnlineFood(
+                        encodeURIComponent(fullName), 
+                        Math.round(kcal), 
+                        Math.round(n.proteins_100g || 0), 
+                        Math.round(n.fat_100g || 0), 
+                        Math.round(n.carbohydrates_100g || 0), 
+                        Math.round(n.fiber_100g || 0)
+                    );
+                } else {
+                    if (url.includes('.org')) {
+                        this.searchByBarcode(barcode, url.replace('.org', '.net'));
+                    } else {
+                        alert("Nerasta.");
+                    }
+                }
+            })
+            .catch(() => {
+                if (url.includes('.org')) {
+                    this.searchByBarcode(barcode, url.replace('.org', '.net'));
+                } else {
+                    alert("Ryšio klaida.");
+                }
+            });
     }
 
 };

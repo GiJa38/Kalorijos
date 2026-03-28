@@ -12,6 +12,7 @@
     --macro-protein: #ff7b72;
     --macro-fat: #d2a8ff;
     --macro-carbs: #79c0ff;
+    --macro-fiber: #3fb950;
 
     /* Glassmorphism */
     --glass-bg: rgba(22, 27, 34, 0.6);
@@ -433,7 +434,7 @@ select:focus {
 
 .macros-container {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, 1fr);
     gap: 10px;
 }
 
@@ -477,6 +478,10 @@ select:focus {
 
 .carbs-fill {
     background: var(--macro-carbs);
+}
+
+.fiber-fill {
+    background: var(--macro-fiber);
 }
 
 .big-calorie-goal {
@@ -656,4 +661,26 @@ select:focus {
 .status-tag.ok { background: rgba(46, 160, 67, 0.2); color: var(--success); }
 .status-tag.high { background: rgba(248, 81, 73, 0.2); color: var(--danger); }
 .status-tag.low { background: rgba(210, 153, 34, 0.2); color: #d29922; }
+
+/* Barcode Scanner UI Tweaks */
+#barcodeReader video {
+    border-radius: 12px;
+    object-fit: cover;
+}
+
+#barcodeReader__dashboard_section_csr button {
+    background: var(--primary) !important;
+    color: white !important;
+    border: none !important;
+    padding: 8px 16px !important;
+    border-radius: 8px !important;
+    font-family: inherit !important;
+    cursor: pointer !important;
+    margin: 5px !important;
+}
+
+#barcodeReader__status_span {
+    font-size: 12px !important;
+    color: var(--text-muted) !important;
+}
 
