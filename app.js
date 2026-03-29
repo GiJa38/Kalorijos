@@ -403,16 +403,16 @@ const app = {
         }
 
         // Atnaujinam tekstus
-        document.getElementById('proteinEaten').innerText = Math.round(c.totalProtein);
+        document.getElementById('proteinEaten').innerText = Math.round(c.totalProtein * 10) / 10;
         document.getElementById('proteinGoal').innerText = p.macros.protein;
 
-        document.getElementById('fatEaten').innerText = Math.round(c.totalFat);
+        document.getElementById('fatEaten').innerText = Math.round(c.totalFat * 10) / 10;
         document.getElementById('fatGoal').innerText = p.macros.fat;
 
-        document.getElementById('carbsEaten').innerText = Math.round(c.totalCarbs);
+        document.getElementById('carbsEaten').innerText = Math.round(c.totalCarbs * 10) / 10;
         document.getElementById('carbsGoal').innerText = p.macros.carbs;
 
-        document.getElementById('fiberEaten').innerText = Math.round(c.totalFiber || 0);
+        document.getElementById('fiberEaten').innerText = Math.round((c.totalFiber || 0) * 10) / 10;
         document.getElementById('fiberGoal').innerText = p.macros.fiber || 0;
 
         // Atnaujinam progress bar'us
@@ -1103,7 +1103,7 @@ const app = {
                     <div>
                         <div style="font-weight: 600; color: var(--primary)">${Math.round(item.kcal)} kcal</div>
                         <div style="font-size: 10px; color: var(--text-muted)">
-                            B:${Math.round(item.protein)} R:${Math.round(item.fat)} A:${Math.round(item.carbs)} S:${Math.round(item.fiber || 0)}
+                            B:${Math.round(item.protein * 10) / 10} R:${Math.round(item.fat * 10) / 10} A:${Math.round(item.carbs * 10) / 10} S:${Math.round((item.fiber || 0) * 10) / 10}
                         </div>
                     </div>
                     <button class="icon-btn" onclick="app.deleteConsumedItem(${item.id})" title="Pašalinti">
