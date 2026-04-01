@@ -131,6 +131,7 @@ const app = {
                         totalProtein: parsed.consumedToday.totalProtein,
                         totalFat: parsed.consumedToday.totalFat,
                         totalCarbs: parsed.consumedToday.totalCarbs,
+                        totalFiber: parsed.consumedToday.totalFiber || 0,
                         trainingKcal: parsed.consumedToday.trainingKcal || 0,
                         tdee: parsed.profile ? parsed.profile.tdee : 0,
                         weight: parsed.profile ? parsed.profile.weight : 0,
@@ -156,7 +157,13 @@ const app = {
             }
             if (parsed.history) {
                 parsed.history = parsed.history.map(h => {
-                    if (h.totalFiber === undefined) h.totalFiber = 0;
+                    if (h.totalFiber === undefined) {
+                        if (h.items && Array.isArray(h.items)) {
+                            h.totalFiber = h.items.reduce((sum, item) => sum + (item.fiber || 0), 0);
+                        } else {
+                            h.totalFiber = 0;
+                        }
+                    }
                     return h;
                 });
             }
@@ -1278,6 +1285,7 @@ const app = {
         let lateCarbsCount = 0;
         let junkFoodCount = 0;
         let healthyFatsCount = 0;
+        let skippedBreakfastCount = 0;
 
         const junkPattern = /čipsai|cipsai|šokoladas|sokoladas|pica|burgeris|mėsainis|mesainis|saldainiai|tortas|pyragas|ledai|spurgos|bandel/i;
         const healthyFatPattern = /avokad|riešut|riesut|lašis|lasis|alyvuog|sėklos|seklos|chia|linų|linu/i;
@@ -1303,6 +1311,10 @@ const app = {
                 cheatDays++;
             }
 
+            let hadBreakfast = false;
+            let dayJunkCount = 0;
+            let dayHealthyFatCount = 0;
+
             if (r.items && Array.isArray(r.items)) {
                 r.items.forEach(item => {
                     const itemName = item.name ? item.name.toLowerCase() : '';
@@ -1312,11 +1324,18 @@ const app = {
                         if (hour >= 20 && item.carbs > 15) {
                             lateCarbsCount++;
                         }
+                        if (hour < 11) {
+                            hadBreakfast = true;
+                        }
                     }
-                    if (junkPattern.test(itemName)) junkFoodCount++;
-                    if (healthyFatPattern.test(itemName)) healthyFatsCount++;
+                    if (junkPattern.test(itemName)) dayJunkCount++;
+                    if (healthyFatPattern.test(itemName)) dayHealthyFatCount++;
                 });
             }
+
+            if (kcal > 0 && !hadBreakfast) skippedBreakfastCount++;
+            if (dayJunkCount > 0) junkFoodCount++;
+            if (dayHealthyFatCount > 0) healthyFatsCount++;
         });
 
         const daysWithRecords = periodData.filter(r => r.totalKcal > 0).length;
@@ -1379,7 +1398,7 @@ const app = {
             type: 'info',
             icon: 'analytics',
             title: `Mitybos balansas (${daysWithRecords} d.)`,
-            text: `Šie rodikliai rodo jūsų mitybos išklotinę: makroelementų proporcijas (%) ir kasdieninį skaidulų vidurkį (g).`,
+            text: `Šie rodikliai rodo jūsų mitybos išklotinę: makroelementų bendrą vidurkį (%) ir vidutinį skaidulų kiekį per dieną (g).`,
             customHtml: `
                 <div class="macro-comparison-container">
                     ${getMacroRow('Baltymai', pctP, 30, 'var(--macro-protein)')}
@@ -1390,125 +1409,201 @@ const app = {
             `
         });
 
-        // --- Helper for finding recommendation from user's meals ---
+        // Helper for selecting random variation
+        const getRandomText = (textsArray) => textsArray[Math.floor(Math.random() * textsArray.length)];
+
+        // Helper for finding recommendation from user's meals
         const findUserMealRecommendation = (type) => {
             if (!this.data.meals || this.data.meals.length === 0) return null;
-            
             return this.data.meals.find(m => {
                 const kcal = m.kcal;
                 const pRatio = (m.protein * 4) / kcal;
                 const fRatio = (m.fat * 9) / kcal;
-                const cRatio = (m.carbs * 4) / kcal;
-                
                 if (type === 'protein') return pRatio > 0.3;
                 if (type === 'healthy_fat') return fRatio > 0.4;
-                if (type === 'balanced') return pRatio > 0.2 && pRatio < 0.4;
                 return false;
             });
         };
 
-        // 1. Consistency
-        if (successfulDays === periodData.length) {
+        // 1. Consistency & Deficits
+        if (successfulDays === daysWithRecords && daysWithRecords >= 3) {
             insights.push({ 
                 type: 'success', 
                 icon: 'verified',
                 title: 'Geležinė kantrybė!', 
-                text: `Visas ${periodData.length} dienas laikėtės plano. Tai tiesiausias kelias į tikslą!` 
+                text: getRandomText([
+                    `Visas ${daysWithRecords} dienas laikėtės plano. Tai tiesiausias kelias rezultatų link!`,
+                    `Puiki disciplina! ${daysWithRecords} dienų iš eilės neviršijote normos.`,
+                    `Jūsų nuoseklumas įkvepia. Tęsiant tokį ritmą, tikslai bus pasiekti labai greitai.`
+                ])
             });
         } else if (cheatDays > 1) {
             insights.push({ 
                 type: 'danger', 
                 icon: 'warning_amber',
                 title: 'Kalorijų kalneliai', 
-                text: `Pastebėjome ${cheatDays} dienas su dideliu viršijimu. Stabilumas yra svarbiau už vienkartines pastangas.` 
+                text: getRandomText([
+                    `Pastebėjome kelias dienas su dideliu viršijimu. Pabandykite nebadauti pirmoje dienos pusėje, taip išvengsite persivalgymo vakare.`,
+                    `Turėjote stiprių kalorijų šuolių. Viena iškrova normalu, bet stenkitės sugrįžti į ritmą ir rasti balansą.`,
+                    `Stabilumas yra svarbiau už vienkartines pastangas. Venkite "viskas arba nieko" mąstymo – radus aukso viduriuką, procesas taps malonesnis.`
+                ])
             });
         }
 
         // 2. Protein
         const avgP_grams = totalP / daysWithRecords;
         const gPerKg = avgP_grams / p.weight;
-
         if (gPerKg < 1.2 || pctP < 20) {
             const mealRec = findUserMealRecommendation('protein');
             insights.push({ 
                 type: 'warning', 
                 icon: 'fitness_center',
-                title: 'Stiprinkime raumenis', 
-                text: `Baltymai sudaro tik ${pctP.toFixed(0)}% raciono. Jie padeda išvengti alkio ir saugo raumenis.`,
-                recommendation: mealRec ? `Išbandykite savo receptą: <strong>${mealRec.name}</strong> – jis puikus baltymų šaltinis!` : 'Pabandykite įtraukti daugiau kiaušinių, liesos mėsos ar ankštinių augalų.'
+                title: 'Apie baltymus ir sotumą', 
+                text: getRandomText([
+                    `Baltymai sudaro tik ${pctP.toFixed(0)}% raciono. Tai pagrindinė statybinė medžiaga, kuri ilgiausiai palaiko sotumo jausmą.`,
+                    `Sunkiai surenkate baltymų normą. Dažnai dėl to atsiranda potraukis užkandžiams vakarais.`,
+                    `Jei trūksta energijos ar sunkiai atsistato raumenys – verta peržvelgti baltymų šaltinius savo lėkštėje.`
+                ]),
+                recommendation: mealRec ? `Puikus sprendimas: jūsų receptas <strong>${mealRec.name}</strong>!` : 'Pabandykite pusryčiams pridėti kiaušinį ar varškės.'
             });
         } else if (pctP > 40) {
             insights.push({ 
                 type: 'info', 
                 icon: 'info',
-                title: 'Baltymų galia', 
-                text: `Baltymai sudaro net ${pctP.toFixed(0)}% raciono. Puiku sotumui, bet nepamirškite ir sveikų skaidulų!` 
+                title: 'Baltymų karalius/karalienė', 
+                text: getRandomText([
+                    `Baltymai sudaro net ${pctP.toFixed(0)}% raciono. Nuostabu sotumui, bet neaukovite daržovių!`,
+                    `Baltymų kiekis labai solidus. Tai padės išlaikyti raumeninę masę deficito metu.`
+                ])
             });
         }
 
         // 3. Fats
         if (pctF < 20) {
-            const mealRec = findUserMealRecommendation('healthy_fat');
             insights.push({ 
                 type: 'warning', 
                 icon: 'favorite',
-                title: 'Hormonų sveikata', 
-                text: `Riebalų kiekis (${pctF.toFixed(0)}%) yra gana žemas. Sveiki riebalai būtini savijautai.`,
-                recommendation: mealRec ? `Jūsų receptas <strong>${mealRec.name}</strong> padėtų subalansuoti riebalus!` : 'Pridėkite šlakelį alyvuogių aliejaus ar saują riešutų.'
+                title: 'Riebalai – organizmo draugai', 
+                text: getRandomText([
+                    `Riebalų kiekis (${pctF.toFixed(0)}%) yra gana žemas. Nebijokite sveikų riebalų – jie kritiškai svarbūs hormonų sistemai.`,
+                    `Nepašalinkite riebalų visiškai! Geriau mažiau porcijų, bet kokybiški (alyvuogių aliejus, avokadai).`
+                ])
             });
-        } else if (pctF > 40) {
+        } else if (pctF > 45) {
             insights.push({ 
                 type: 'danger', 
                 icon: 'opacity',
-                title: 'Riebalų tankis', 
-                text: `Riebalai sudaro ${pctF.toFixed(0)}% kalorijų. Maistas tampa labai kaloringas mažame tūryje, todėl sunkiau pasisotinti.` 
+                title: 'Kalorijų tankis', 
+                text: getRandomText([
+                    `Riebalai sudaro didelę dalį kalorijų (${pctF.toFixed(0)}%). Nors tai skanu ir sveika, riebaliniame maiste labai daug kalorijų mažame tūryje.`,
+                    `Pastebima tendencija valgyti labai riebiai. Rekomenduojame riebesnius produktus matuoti šaukštais, o ne "iš akies".`
+                ])
             });
         }
 
-        // 4. Carbs
+        // Habits (Stronger thresholds)
+        if (healthyFatsCount >= Math.max(2, Math.floor(daysWithRecords / 2))) {
+            insights.push({ 
+                type: 'success', 
+                icon: 'star',
+                title: 'Kokybiški riebalai', 
+                text: getRandomText([
+                    `Nuolat įtraukiate sveikų riebalų (avokadai, lašiša, riešutai ir kt.). Toks įprotis mažina organizmo uždegimus!`,
+                    `Džiugu matyti vertingų riebalų šaltinių stabilų vartojimą. Švari mityba atsiperka ne tik svoriu, bet ir savijauta.`,
+                    `Puiku! Kokybiški riebalų šaltiniai padeda pasisavinti vitaminus ir išlaiko stabilų cukraus lygį kraujyje.`
+                ])
+            });
+        }
+
+        // 4. Carbs / Fiber
         if (pctC > 55) {
             insights.push({ 
                 type: 'warning', 
                 icon: 'bolt',
-                title: 'Energijos šuoliai', 
-                text: `Angliavandeniai dominuoja (${pctC.toFixed(0)}%). Jei trūksta energijos po valgio, pabandykite juos kombinuoti su baltymais.` 
+                title: 'Angliavandenių dominuojamas', 
+                text: getRandomText([
+                    `Angliavandeniai dominuoja jūsų mityboje (${pctC.toFixed(0)}%). Jei trūksta energijos, pabandykite dalį jų pakeisti baltymais ar riebalais.`,
+                    `Didelę dalį kalorijų gaunate iš angliavandenių. Tai puiku sportuojant, bet sėdimam darbui gali sukelti mieguistumą po pietų.`
+                ])
             });
         }
 
-        // 5. Habits
+        if (avgFiber >= targetFiber - 3 && targetFiber > 0) {
+            insights.push({
+                type: 'success',
+                icon: 'grass',
+                title: 'Skaidulų norma',
+                text: getRandomText([
+                    `Super! Renkate pakankamai skaidulų. Tai užtikrina puikų virškinimą ir palaiko švarią žarnyno mikroflorą.`,
+                    `Skaidulų norma pasiekta! Daug daržovių lėkštėje reiškia daugiau tūrio skrandyje, todėl mažiau alkio net esant deficitui.`
+                ])
+            });
+        } else if (avgFiber < targetFiber * 0.6 && targetFiber > 0) {
+            insights.push({
+                type: 'warning',
+                icon: 'eco',
+                title: 'Trūksta skaidulų',
+                text: getRandomText([
+                    `Skaidulų vidurkis per žemas. Be jų net ir subalansuota mityba gali varginti virškinamąjį traktą.`,
+                    `Pastebime daržovių ir pilno grūdo produktų trūkumą. Skaidulos stabdo cukraus įsisavinimą ir padeda ilgiau jaustis žvaliems.`
+                ])
+            });
+        }
+
+        // 5. Timings & Quality
         if (lateCarbsCount >= 2) {
             insights.push({ 
                 type: 'info', 
                 icon: 'bedtime',
-                title: 'Vėlyva energija', 
-                text: `Vakarais renkatės daug angliavandenių. Jei ryte jaučiatės sunkiai, pabandykite juos perkelti į dienos vidurį.` 
+                title: 'Vėlyvi angliavandeniai', 
+                text: getRandomText([
+                    `Vakarais renkatės daug angliavandenių turintį maistą. Nors tai neaugina svorio tiesiogiai, ryte galite jaustis apsunkę.`,
+                    `Pabandykite maistą su daugiau angliavandenių perkelti į dienos vidurį, o vakarienei palikti baltymus ir daržoves.`
+                ])
             });
         }
 
-        if (junkFoodCount >= 3) {
+        if (junkFoodCount >= Math.max(2, Math.floor(daysWithRecords / 2))) {
             insights.push({ 
                 type: 'danger', 
                 icon: 'fastfood',
-                title: 'Maisto kokybė', 
-                text: `Racione pasirodė nemažai perdirbtų produktų. Stenkitės grįžti prie "gryno" maisto energijai palaikyti.` 
+                title: 'Perdirbto maisto spąstai', 
+                text: getRandomText([
+                    `Racione dažnokai pasitaiko greito ar perdirbto maisto. Atminkite, kad jis trumpam pasotina, bet greitai sugrąžina "žvėrišką alkį".`,
+                    `Toks maistas labai kaloringas ir skanus, todėl lengva jo persivalgyti. Pabandykite po truputį grįžti prie "gryno" neperdirbto maisto.`
+                ])
             });
         }
 
-        if (healthyFatsCount > 0 && pctF >= 20) {
-            insights.push({ 
-                type: 'success', 
-                icon: 'star',
-                title: 'Švari mityba', 
-                text: `Puiku! Randame kokybiškų riebalų šaltinių. Tai puiki investicija į ilgalaikę sveikatą.` 
+        if (skippedBreakfastCount >= Math.max(2, Math.floor(daysWithRecords / 2))) {
+            insights.push({
+                type: 'info',
+                icon: 'free_breakfast',
+                title: 'Pusbadačio rytas',
+                text: getRandomText([
+                    `Dažnai ilgai nevalgote iki pietų. Tai geras būdas „sutaupyti“ kalorijų (Protarpinis badavimas), jei vakare sugebate nepersivalgyti.`,
+                    `Matome, kad esate linkę praleisti pusryčius. Svarbiausia, kad po tokio ilgo tarpo dienos eigoje mityba išliktų saikinga ir racionali!`
+                ])
+            });
+        }
+
+        // 6. Generic Fallback Tips (if not many specific insights were triggered)
+        if (insights.length <= 2) {
+            insights.push({
+                type: 'info',
+                icon: 'lightbulb',
+                title: 'Dienos patarimas',
+                text: getRandomText([
+                    `Vanduo yra viskas! Išgėrus stiklinę vandens prieš valgį, dažnai greičiau pajuntamas sotumas.`,
+                    `Valgymo tempas svarbus. Smegenys gauna sotumo signalą tik po 15-20 minučių. Valgykite lėtai!`,
+                    `Jei miegate mažiau nei 7 valandas, kitą dieną alkio hormonai tampa daug aktyvesni ir verčia griebtis saldumynų.`,
+                    `Neatmeskite mėgstamų produktų, tiesiog pamažinkite jų porcijas ir suderinkite lėkštėje su baltymais.`,
+                    `Planavimas apsaugo nuo impulsyvaus valgymo. Prieš einant apsipirkti ar išalkus visuomet turėkite planą!`
+                ])
             });
         }
 
         // Render UI
-        if (insights.length === 0) {
-            list.innerHTML = '<li class="empty-state" style="color:var(--success)">Viskas atrodo puikiai! Didelių nukrypimų neradome.</li>';
-            return;
-        }
-
         insights.forEach(ins => {
             const li = document.createElement('li');
             li.className = `insight-card ${ins.type}`;
