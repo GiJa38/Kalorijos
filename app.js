@@ -157,7 +157,7 @@ const app = {
             }
             if (parsed.history) {
                 parsed.history = parsed.history.map(h => {
-                    if (h.totalFiber === undefined) {
+                    if (!h.totalFiber) { // Matches undefined or 0
                         if (h.items && Array.isArray(h.items)) {
                             h.totalFiber = h.items.reduce((sum, item) => sum + (item.fiber || 0), 0);
                         } else {
