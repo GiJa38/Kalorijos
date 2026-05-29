@@ -15,6 +15,7 @@ const app = {
             activity: '1.2',
             goal: 0,
             eatBackCalories: true,
+            avoidDairyInEvening: false,
             tdee: 0, // Total Daily Energy Expenditure (Poreikis)
             macros: { protein: 0, fat: 0, carbs: 0, fiber: 0 }
         },
@@ -205,6 +206,7 @@ const app = {
 
             // Atgalinis suderinamumas senesniems išsaugojimams
             if (parsed.profile.eatBackCalories === undefined) parsed.profile.eatBackCalories = true;
+            if (parsed.profile.avoidDairyInEvening === undefined) parsed.profile.avoidDairyInEvening = false;
             if (parsed.consumedToday && parsed.consumedToday.trainingKcal === undefined) parsed.consumedToday.trainingKcal = 0;
             if (!parsed.history) parsed.history = [];
 
@@ -289,6 +291,11 @@ const app = {
                 this.data.profile.eatBackCalories = eatBackSel.value === 'true';
             }
 
+            const avoidDairySel = document.getElementById('avoidDairyInEvening');
+            if (avoidDairySel) {
+                this.data.profile.avoidDairyInEvening = avoidDairySel.value === 'true';
+            }
+
             this.calculateDailyNeeds();
         };
 
@@ -325,6 +332,9 @@ const app = {
         document.getElementById('goal').value = p.goal;
         if (document.getElementById('eatBackCalories')) {
             document.getElementById('eatBackCalories').value = p.eatBackCalories === false ? 'false' : 'true';
+        }
+        if (document.getElementById('avoidDairyInEvening')) {
+            document.getElementById('avoidDairyInEvening').value = p.avoidDairyInEvening === true ? 'true' : 'false';
         }
     },
 
@@ -2163,8 +2173,424 @@ const app = {
                     alert("Ryšio klaida.");
                 }
             });
-    }
+    },
 
+    menuTemplates: [
+        {
+            name: "Avižinė košė su bananu ir uogomis",
+            type: "breakfast",
+            isDairy: true,
+            kcal: 390,
+            protein: 13,
+            fat: 6,
+            carbs: 68,
+            fiber: 9,
+            ingredients: [
+                { name: "Avižiniai dribsniai", weight: 60, unit: "g" },
+                { name: "Pienas 2.5%", weight: 150, unit: "ml" },
+                { name: "Bananas", weight: 100, unit: "g" },
+                { name: "Šilauogės (Mėlynės)", weight: 50, unit: "g" }
+            ]
+        },
+        {
+            name: "Omletas su ruginės duonos rieke",
+            type: "breakfast",
+            isDairy: false,
+            kcal: 350,
+            protein: 21,
+            fat: 20,
+            carbs: 20,
+            fiber: 4,
+            ingredients: [
+                { name: "Kiaušinis", weight: 120, unit: "g" },
+                { name: "Sviestas 82%", weight: 8, unit: "g" },
+                { name: "Ruginė juoda duona", weight: 40, unit: "g" },
+                { name: "Agurkas", weight: 100, unit: "g" },
+                { name: "Pomidoras", weight: 100, unit: "g" }
+            ]
+        },
+        {
+            name: "Liesa varškė su graikišku jogurtu ir medumi",
+            type: "dinner",
+            isDairy: true,
+            kcal: 320,
+            protein: 42,
+            fat: 6,
+            carbs: 25,
+            fiber: 0,
+            ingredients: [
+                { name: "Varškė liesa (0.5%)", weight: 180, unit: "g" },
+                { name: "Graikiškas jogurtas", weight: 100, unit: "g" },
+                { name: "Medus", weight: 12, unit: "g" }
+            ]
+        },
+        {
+            name: "Kepta lašiša su grikiais ir daržovėmis",
+            type: "lunch",
+            isDairy: false,
+            kcal: 560,
+            protein: 39,
+            fat: 23,
+            carbs: 50,
+            fiber: 8,
+            ingredients: [
+                { name: "Lašiša (žalia)", weight: 120, unit: "g" },
+                { name: "Grikiai (virti)", weight: 150, unit: "g" },
+                { name: "Brokoliai", weight: 100, unit: "g" },
+                { name: "Morka", weight: 80, unit: "g" },
+                { name: "Alyvuogių aliejus", weight: 5, unit: "g" }
+            ]
+        },
+        {
+            name: "Vištienos krūtinėlė su ryžiais ir garintais brokoliais",
+            type: "lunch",
+            isDairy: false,
+            kcal: 480,
+            protein: 45,
+            fat: 9,
+            carbs: 55,
+            fiber: 5,
+            ingredients: [
+                { name: "Vištienos krūtinėlė (kepta/virta)", weight: 130, unit: "g" },
+                { name: "Ryžiai (virti)", weight: 150, unit: "g" },
+                { name: "Brokoliai", weight: 120, unit: "g" },
+                { name: "Alyvuogių aliejus", weight: 8, unit: "g" }
+            ]
+        },
+        {
+            name: "Tuno salotos su daržovėmis ir alyvuogių aliejumi",
+            type: "dinner",
+            isDairy: false,
+            kcal: 290,
+            protein: 32,
+            fat: 16,
+            carbs: 5,
+            fiber: 3,
+            ingredients: [
+                { name: "Tunas (savo sultyse)", weight: 120, unit: "g" },
+                { name: "Salotų lapai (Iceberg kt.)", weight: 80, unit: "g" },
+                { name: "Pomidoras", weight: 100, unit: "g" },
+                { name: "Agurkas", weight: 100, unit: "g" },
+                { name: "Alyvuogių aliejus", weight: 12, unit: "g" }
+            ]
+        },
+        {
+            name: "Kiaušinienė su špinatais ir pomidorais",
+            type: "dinner",
+            isDairy: false,
+            kcal: 280,
+            protein: 17,
+            fat: 21,
+            carbs: 6,
+            fiber: 2,
+            ingredients: [
+                { name: "Kiaušinis", weight: 120, unit: "g" },
+                { name: "Alyvuogių aliejus", weight: 8, unit: "g" },
+                { name: "Špinatai", weight: 50, unit: "g" },
+                { name: "Pomidoras", weight: 100, unit: "g" }
+            ]
+        },
+        {
+            name: "Kefyras su obuoliu ir sauja migdolų",
+            type: "snack",
+            isDairy: true,
+            kcal: 270,
+            protein: 11,
+            fat: 12,
+            carbs: 30,
+            fiber: 5,
+            ingredients: [
+                { name: "Kefyras 2.5%", weight: 250, unit: "ml" },
+                { name: "Obuolys", weight: 150, unit: "g" },
+                { name: "Migdolai", weight: 15, unit: "g" }
+            ]
+        },
+        {
+            name: "Graikiniai riešutai ir bananas",
+            type: "snack",
+            isDairy: false,
+            kcal: 280,
+            protein: 4,
+            fat: 13,
+            carbs: 37,
+            fiber: 5,
+            ingredients: [
+                { name: "Graikiniai riešutai", weight: 20, unit: "g" },
+                { name: "Bananas", weight: 100, unit: "g" }
+            ]
+        }
+    ],
+
+    lastGeneratedMenu: null,
+
+    openMenuGeneratorModal() {
+        const p = this.data.profile;
+        if (!p || !p.weight || !p.age || !p.height) {
+            return alert("Pirmiausia užpildykite profilį ir paspauskite 'Išsaugoti'!");
+        }
+
+        const targetKcal = p.eatBackCalories !== false ? p.tdee + (this.data.consumedToday.trainingKcal || 0) : p.tdee;
+        document.getElementById('menuGeneratorTdee').innerText = targetKcal;
+
+        if (this.lastGeneratedMenu) {
+            document.getElementById('menuGeneratorEmptyState').classList.add('hidden');
+            document.getElementById('generatedMenuContainer').classList.remove('hidden');
+        } else {
+            document.getElementById('menuGeneratorEmptyState').classList.remove('hidden');
+            document.getElementById('generatedMenuContainer').classList.add('hidden');
+        }
+
+        this.showModal('menuGeneratorModal');
+    },
+
+    getMealScore(item, slotType, avoidDairy) {
+        const kcal = item.kcal || 1; // vengti dalybos iš 0
+        const protein = item.protein || item.totalProtein || 0;
+        const fat = item.fat || item.totalFat || 0;
+        const carbs = item.carbs || item.totalCarbs || 0;
+
+        const carbPct = (carbs * 4) / kcal;
+        const proteinPct = (protein * 4) / kcal;
+        const fatPct = (fat * 9) / kcal;
+
+        let score = 50; // Pradinis vidutinis balas
+
+        const nameLower = item.name.toLowerCase();
+
+        // 1. Pieno produktų ribojimas vakare
+        const dairyKeywords = /varšk|jogurt|pien|skyru|sūr|kefyr|grietin/i;
+        const isDairy = item.isDairy || dairyKeywords.test(nameLower);
+
+        if (avoidDairy && slotType === 'dinner' && isDairy) {
+            score -= 120; // Atmetame pieno produktus vakarienei
+        }
+
+        // 2. Vertinimas pagal paros laiką
+        if (slotType === 'breakfast') {
+            // Ryte angliavandeniai gerai
+            if (carbPct > 0.40) score += 25;
+            if (carbPct < 0.20) score -= 35;
+            // Raktiniai žodžiai
+            if (/košė|omlet|blyn|sumuštin|kiaušin|dribsn|jogurt|skyru/i.test(nameLower)) score += 30;
+            // Netinkami pusryčiams žodžiai
+            if (/sriuba|kepsnys|troškinys|wok|vakarienė/i.test(nameLower)) score -= 40;
+        } 
+        else if (slotType === 'lunch') {
+            // Pietums reikia balanso
+            if (proteinPct > 0.20 && carbPct > 0.25 && carbPct < 0.55) score += 25;
+            // Raktiniai žodžiai
+            if (/piet|sriuba|kepsnys|troškinys|wok|makaron|ryž|grik|višt|lašiš|mės/i.test(nameLower)) score += 30;
+            // Netinkami
+            if (/košė|dribsniai|sūrelis/i.test(nameLower)) score -= 30;
+        } 
+        else if (slotType === 'dinner') {
+            // Vakarienei - low-carb, high-protein
+            if (carbPct < 0.25 || carbs < 15) score += 35;
+            if (carbPct > 0.40) score -= 45; // ribojam angliavandenius
+            if (proteinPct > 0.30) score += 15;
+            // Raktiniai žodžiai
+            if (/salot|žuvis|tunas|varšk|omlet|kiaušin|krūtinėlė/i.test(nameLower)) score += 30;
+            // Angliavandenių bombos vakarienei
+            if (/makaron|ryžiai|bulv|blyn|košė|dribsn|cukr|medus/i.test(nameLower)) score -= 50;
+        } 
+        else if (slotType === 'snack') {
+            // Užkandis turi būti lengvas
+            if (kcal >= 100 && kcal <= 350) score += 25;
+            if (kcal > 450) score -= 30;
+            if (/užkand|vais|riešut|obuol|banan|kefyr|jogurt|baton/i.test(nameLower)) score += 20;
+        }
+
+        return score;
+    },
+
+    generateMenu() {
+        const p = this.data.profile;
+        const avoidDairy = p.avoidDairyInEvening === true;
+        const targetKcal = p.eatBackCalories !== false ? p.tdee + (this.data.consumedToday.trainingKcal || 0) : p.tdee;
+
+        // Sujungiame asmeninius receptus ir meniu šablonus
+        const userMeals = this.data.meals.map(m => ({ ...m, isUserMeal: true }));
+        const candidates = [...userMeals, ...this.menuTemplates];
+
+        if (candidates.length === 0) {
+            return alert("Klaida: nerasta jokių patiekalų ar šablonų generavimui!");
+        }
+
+        // 1. Nustatome valgių skaičių ir kalorijų rėžius
+        let mealSlots = [];
+        if (targetKcal > 1850) {
+            // 4 valgiai: Pusryčiai (30%), Pietūs (35%), Užkandis (15%), Vakarienė (20%)
+            mealSlots = [
+                { type: 'breakfast', label: 'breakfast', targetShare: 0.30 },
+                { type: 'lunch', label: 'lunch', targetShare: 0.35 },
+                { type: 'snack', label: 'snack', targetShare: 0.15 },
+                { type: 'dinner', label: 'dinner', targetShare: 0.20 }
+            ];
+            document.getElementById('snackCard').classList.remove('hidden');
+        } else {
+            // 3 valgiai: Pusryčiai (35%), Pietūs (40%), Vakarienė (25%)
+            mealSlots = [
+                { type: 'breakfast', label: 'breakfast', targetShare: 0.35 },
+                { type: 'lunch', label: 'lunch', targetShare: 0.40 },
+                { type: 'dinner', label: 'dinner', targetShare: 0.25 }
+            ];
+            document.getElementById('snackCard').classList.add('hidden');
+        }
+
+        const generatedMenu = [];
+
+        // Kiekvienam slotui renkame patiekalą
+        mealSlots.forEach(slot => {
+            const slotTargetKcal = targetKcal * slot.targetShare;
+
+            // Įvertiname visus kandidatus pagal balą šiam slotui
+            const scoredCandidates = candidates.map(c => {
+                const score = this.getMealScore(c, slot.type, avoidDairy);
+                return { item: c, score: score };
+            });
+
+            // Atrenkame tik gerus kandidatus (balas >= 30)
+            let filtered = scoredCandidates.filter(c => c.score >= 30);
+
+            // Jeigu neradome nieko su balu >= 30, paimame visus ir surūšiuojame pagal balą
+            if (filtered.length === 0) {
+                filtered = scoredCandidates;
+            }
+
+            // Rūšiuojame mažėjimo tvarka
+            filtered.sort((a, b) => b.score - a.score);
+
+            // Kad nebūtų visada tas pats meniu, pasirenkame atsitiktinai iš 3 geriausių kandidatų
+            const poolSize = Math.min(3, filtered.length);
+            const selected = filtered[Math.floor(Math.random() * poolSize)].item;
+
+            // Sukuriame gilaus kopijavimo patiekalo objektą koregavimui
+            const mealCopy = JSON.parse(JSON.stringify(selected));
+
+            // Apskaičiuojame koregavimo koeficientą (scaling factor)
+            const baseKcal = mealCopy.kcal || 1;
+            let scale = slotTargetKcal / baseKcal;
+
+            // Saugiklis: neleidžiame ekstremalių dydžių
+            if (scale < 0.5) scale = 0.5;
+            if (scale > 1.8) scale = 1.8;
+
+            mealCopy.scale = scale;
+            mealCopy.kcal = baseKcal * scale;
+            mealCopy.protein = (mealCopy.protein || mealCopy.totalProtein || 0) * scale;
+            mealCopy.fat = (mealCopy.fat || mealCopy.totalFat || 0) * scale;
+            mealCopy.carbs = (mealCopy.carbs || mealCopy.totalCarbs || 0) * scale;
+            mealCopy.fiber = (mealCopy.fiber || mealCopy.totalFiber || 0) * scale;
+            
+            // Patiekalo svorio ir aprašo pritaikymas
+            if (mealCopy.ingredients && Array.isArray(mealCopy.ingredients)) {
+                mealCopy.ingredients.forEach(ing => {
+                    ing.weight = ing.weight * scale;
+                });
+                
+                // Gražiai suformatuota sudėtis
+                mealCopy.portionText = mealCopy.ingredients.map(ing => {
+                    return `${Math.round(ing.weight)}${ing.unit || 'g'} ${ing.name}`;
+                }).join(', ');
+                
+                // Visas svoris yra suma
+                mealCopy.totalWeight = mealCopy.ingredients.reduce((sum, ing) => sum + ing.weight, 0);
+            } else {
+                mealCopy.totalWeight = (mealCopy.totalWeight || 300) * scale;
+                mealCopy.portionText = `Koreguota porcija: ~${Math.round(mealCopy.totalWeight)}g`;
+            }
+
+            mealCopy.slotType = slot.type;
+            generatedMenu.push(mealCopy);
+        });
+
+        this.lastGeneratedMenu = generatedMenu;
+
+        // 2. Atvaizduojame rezultatus UI
+        let totalMenuKcal = 0;
+        let totalMenuProtein = 0;
+        let totalMenuFat = 0;
+        let totalMenuCarbs = 0;
+
+        generatedMenu.forEach(meal => {
+            totalMenuKcal += meal.kcal;
+            totalMenuProtein += meal.protein;
+            totalMenuFat += meal.fat;
+            totalMenuCarbs += meal.carbs;
+
+            const slotPrefix = meal.slotType; // 'breakfast', 'lunch', 'dinner', 'snack'
+            
+            document.getElementById(`${slotPrefix}Kcal`).innerText = `${Math.round(meal.kcal)} kcal`;
+            document.getElementById(`${slotPrefix}Content`).innerHTML = `
+                <strong style="color: var(--text-main); font-size: 15px;">${meal.name}</strong>
+                <div style="font-size: 12px; color: var(--text-muted); margin-top: 3px;">
+                    B: ${Math.round(meal.protein)}g | R: ${Math.round(meal.fat)}g | A: ${Math.round(meal.carbs)}g
+                </div>
+                <div style="font-size: 12px; color: var(--primary); margin-top: 5px; font-style: italic;">
+                    Sudėtis: ${meal.portionText}
+                </div>
+            `;
+        });
+
+        document.getElementById('menuTotalKcal').innerText = Math.round(totalMenuKcal);
+        document.getElementById('menuTargetKcal').innerText = Math.round(targetKcal);
+        document.getElementById('menuTotalMacros').innerHTML = `
+            Baltymų: <strong>${Math.round(totalMenuProtein)}g</strong> | 
+            Riebalų: <strong>${Math.round(totalMenuFat)}g</strong> | 
+            Angliavandenių: <strong>${Math.round(totalMenuCarbs)}g</strong>
+        `;
+
+        document.getElementById('menuGeneratorEmptyState').classList.add('hidden');
+        document.getElementById('generatedMenuContainer').classList.remove('hidden');
+    },
+
+    addAllGeneratedMealsToToday() {
+        if (!this.lastGeneratedMenu || this.lastGeneratedMenu.length === 0) return;
+
+        if (!confirm("Ar norite visus šiuos sugeneruotus patiekalus įtraukti į šiandienos suvartotą maistą?")) {
+            return;
+        }
+
+        const cT = this.data.consumedToday;
+
+        this.lastGeneratedMenu.forEach((meal, index) => {
+            // Sukuriame suvartojimo įrašą
+            const consumed = {
+                id: Date.now() + index + Math.floor(Math.random() * 100),
+                timestamp: new Date().toLocaleTimeString('lt-LT', { hour: '2-digit', minute: '2-digit' }),
+                name: meal.name,
+                weight: meal.totalWeight,
+                displayAmount: `${Math.round(meal.totalWeight)}g`,
+                type: 'meal',
+                kcal: meal.kcal,
+                protein: meal.protein,
+                fat: meal.fat,
+                carbs: meal.carbs,
+                fiber: meal.fiber || 0
+            };
+
+            cT.items.push(consumed);
+            cT.totalKcal += consumed.kcal;
+            cT.totalProtein += consumed.protein;
+            cT.totalFat += consumed.fat;
+            cT.totalCarbs += consumed.carbs;
+            cT.totalFiber += consumed.fiber;
+        });
+
+        this.saveData();
+        this.updateSummaryUI();
+        this.renderTodayMeals();
+        
+        // Išvalome laikiną sugeneruotą meniu
+        this.lastGeneratedMenu = null;
+
+        this.closeModal('menuGeneratorModal');
+
+        alert("Meniu sėkmingai pritaikytas! Visi patiekalai įtraukti į suvestinę.");
+
+        // Nukreipiame į Suvestinės kortelę
+        document.querySelector('.nav-item[data-target="view-summary"]').click();
+    }
 };
 
 // Paleisti programą užsikrovus

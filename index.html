@@ -100,13 +100,21 @@
                     </div>
                 </div>
 
-                <!-- AI Ką suvalgyti mygtukas -->
-                <button class="btn-primary"
-                    style="margin-bottom: 20px; display: flex; align-items: center; justify-content: center; gap: 8px; background: linear-gradient(135deg, #a371f7, #6e40c9); border: none;"
-                    onclick="app.generateMealSuggestion()">
-                    <span class="material-icons-round">auto_awesome</span>
-                    Nežinai, ką suvalgyti? Pasiūlyti patiekalą
-                </button>
+                <!-- AI Meniu ir Patiekalo siūlymas -->
+                <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                    <button class="btn-primary"
+                        style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; background: linear-gradient(135deg, #a371f7, #6e40c9); border: none; font-size: 14px; padding: 12px 5px;"
+                        onclick="app.generateMealSuggestion()">
+                        <span class="material-icons-round">lightbulb</span>
+                        Pasiūlyti užkandį
+                    </button>
+                    <button class="btn-primary"
+                        style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; background: linear-gradient(135deg, #00f2fe, #4facfe); border: none; font-size: 14px; padding: 12px 5px;"
+                        onclick="app.openMenuGeneratorModal()">
+                        <span class="material-icons-round">restaurant</span>
+                        Dienos meniu
+                    </button>
+                </div>
 
                 <div class="macros-container">
                     <div class="macro-card glass-card">
@@ -358,6 +366,13 @@
                             <select id="eatBackCalories" required>
                                 <option value="false">Nieko (laikyti didesnį deficitą)</option>
                                 <option value="true">Pridėti prie dienos normos (galėsiu daugiau suvalgyti)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Pieno produktai vakare</label>
+                            <select id="avoidDairyInEvening" required>
+                                <option value="false">Leisti (varškė, Skyr, jogurtas vakare tinka)</option>
+                                <option value="true">Vengti (riboti pieno produktus vakarienei)</option>
                             </select>
                         </div>
                         <button type="submit" class="btn btn-primary w-100">Išsaugoti ir Skaičiuoti</button>
@@ -634,6 +649,96 @@
             </div>
 
             <button class="btn-primary" onclick="app.closeModal('aiSuggestModal')">Supratau, puiku!</button>
+        </div>
+    </div>
+
+    <!-- Menu Generator Modal -->
+    <div id="menuGeneratorModal" class="modal">
+        <div class="modal-content glass" style="max-height: 90vh; overflow-y: auto;">
+            <div class="modal-header">
+                <h2>Dienos Meniu Generatorius</h2>
+                <button class="icon-btn" onclick="app.closeModal('menuGeneratorModal')"><span
+                        class="material-icons-round">close</span></button>
+            </div>
+            
+            <div class="text-center" style="margin-bottom: 15px; font-size: 14px; color: var(--text-muted);">
+                Sugeneruokite 3–4 patiekalų planą jūsų dienos normai: <strong id="menuGeneratorTdee">0</strong> kcal
+            </div>
+
+            <!-- Meniu rezultatas -->
+            <div id="generatedMenuContainer" class="hidden">
+                <div class="glass-card mt-10" style="padding: 12px; border-left: 4px solid #ffaa00;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px; margin-bottom: 8px;">
+                        <span style="display: flex; align-items: center; gap: 6px; font-weight: 600; color: #ffaa00;">
+                            <span class="material-icons-round">wb_sunny</span> Ryte (Pusryčiai)
+                        </span>
+                        <span id="breakfastKcal" style="font-size: 14px; font-weight: 500;">0 kcal</span>
+                    </div>
+                    <div id="breakfastContent" style="font-size: 14px; color: var(--text-main); line-height: 1.4;">...</div>
+                </div>
+
+                <div class="glass-card mt-15" style="padding: 12px; border-left: 4px solid #ff5500;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px; margin-bottom: 8px;">
+                        <span style="display: flex; align-items: center; gap: 6px; font-weight: 600; color: #ff5500;">
+                            <span class="material-icons-round">sunny</span> Dieną (Pietūs)
+                        </span>
+                        <span id="lunchKcal" style="font-size: 14px; font-weight: 500;">0 kcal</span>
+                    </div>
+                    <div id="lunchContent" style="font-size: 14px; color: var(--text-main); line-height: 1.4;">...</div>
+                </div>
+
+                <div class="glass-card mt-15" style="padding: 12px; border-left: 4px solid #00d2ff;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px; margin-bottom: 8px;">
+                        <span style="display: flex; align-items: center; gap: 6px; font-weight: 600; color: #00d2ff;">
+                            <span class="material-icons-round">nights_stay</span> Vakare (Vakarienė)
+                        </span>
+                        <span id="dinnerKcal" style="font-size: 14px; font-weight: 500;">0 kcal</span>
+                    </div>
+                    <div id="dinnerContent" style="font-size: 14px; color: var(--text-main); line-height: 1.4;">...</div>
+                </div>
+
+                <!-- Papildomas užkandis, jei reikia subalansuoti kalorijas -->
+                <div id="snackCard" class="glass-card mt-15 hidden" style="padding: 12px; border-left: 4px solid #a371f7;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px; margin-bottom: 8px;">
+                        <span style="display: flex; align-items: center; gap: 6px; font-weight: 600; color: #a371f7;">
+                            <span class="material-icons-round">local_cafe</span> Papildomas Užkandis
+                        </span>
+                        <span id="snackKcal" style="font-size: 14px; font-weight: 500;">0 kcal</span>
+                    </div>
+                    <div id="snackContent" style="font-size: 14px; color: var(--text-main); line-height: 1.4;">...</div>
+                </div>
+
+                <!-- Bendra kalorijų suvestinė planui -->
+                <div class="glass-card mt-20 text-center" style="background: rgba(255, 255, 255, 0.05); padding: 12px;">
+                    <div style="font-size: 12px; color: var(--text-muted);">Bendra plano vertė</div>
+                    <div style="font-size: 20px; font-weight: 600; margin-top: 4px;">
+                        <span id="menuTotalKcal">0</span> / <span id="menuTargetKcal">0</span> kcal
+                    </div>
+                    <div style="font-size: 12px; color: var(--text-muted); margin-top: 5px;" id="menuTotalMacros">
+                        B: 0g | R: 0g | A: 0g
+                    </div>
+                </div>
+
+                <div class="row mt-20" style="gap: 10px;">
+                    <div class="col">
+                        <button type="button" class="btn btn-primary w-100" style="background: rgba(255, 255, 255, 0.1); color: var(--text-main);" onclick="app.generateMenu()">
+                            <span class="material-icons-round">sync</span> Generuoti vėl
+                        </button>
+                    </div>
+                    <div class="col">
+                        <button type="button" class="btn btn-primary w-100" style="background: var(--success);" onclick="app.addAllGeneratedMealsToToday()">
+                            <span class="material-icons-round">done_all</span> Įtraukti viską
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="menuGeneratorEmptyState" class="text-center mt-20" style="padding: 20px;">
+                <span class="material-icons-round" style="font-size: 48px; color: var(--text-muted); opacity: 0.5;">restaurant_menu</span>
+                <p style="margin-top: 10px; font-size: 14px; color: var(--text-muted);">Generuokite subalansuotą dienos meniu iš savo patiekalų ir bazinių produktų.</p>
+                <button type="button" class="btn btn-primary w-100 mt-20" style="background: linear-gradient(135deg, #00f2fe, #4facfe); border: none;" onclick="app.generateMenu()">Sugeneruoti meniu</button>
+            </div>
+
         </div>
     </div>
 
