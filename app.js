@@ -1767,87 +1767,222 @@ const app = {
     },
 
     // --- AI Asistentas: Ką suvalgyti? ---
+    lastAiGeneratedMeal: null,
+
     generateMealSuggestion() {
         const p = this.data.profile;
-// ... (logika palikta ta pati)
-        const c = this.data.consumedToday;
-
         if (!p || !p.weight) return alert("Pirmiausia užpildykite profilį!");
 
-        // Pagalbinė funkcija atsitiktiniam pasirinkimui
-        const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
-
-        // 1. Apskaičiuojam kiek liko
+        const c = this.data.consumedToday;
         const targetKcal = p.eatBackCalories !== false ? p.tdee + (c.trainingKcal || 0) : p.tdee;
         const remainingKcal = targetKcal - c.totalKcal;
 
-        const targetP = p.weight * 2.0; // orientacinis 2g/kg baltymų
-        const remainingP = targetP - c.totalProtein;
+        const hasApiKey = p.geminiApiKey && p.geminiApiKey.trim().length > 5;
 
-        const targetF = p.weight * 1.0; // orientacinis 1g/kg riebalų
-        const remainingF = targetF - c.totalFat;
+        if (!hasApiKey) {
+            // Atsarginis taisyklinis režimas (Fallback)
+            document.getElementById('aiNoKeyWrapper').classList.remove('hidden');
+            document.getElementById('aiActiveWrapper').classList.add('hidden');
 
-        let suggestion = "";
+            const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+            const targetP = p.weight * 2.0;
+            const remainingP = targetP - c.totalProtein;
+            const remainingF = (p.weight * 1.0) - c.totalFat;
 
-        if (remainingKcal <= 0) {
-            suggestion = pick([
-                "<b>Jūsų dienos kalorijų norma jau užpildyta!</b><br>Jei vis dar jaučiate alkį, rekomenduojame išgerti vandens arbą suvalgyti lengvą daržovių salotą be riebaus padažo.",
-                "<b>Kalorijų tikslas pasiektas!</b><br>Geriausia būtų likti prie vandens ar nesaldintos arbatos. Jei labai norisi ko nors kramtyti – agurkas yra puikus pasirinkimas.",
-                "<b>Dienos limitas viršytas arba pasiektas.</b><br>Rekomenduojame šiandien daugiau nebevalgyti, kad išlaikytumėte svorio metimo tempą."
-            ]);
-        } else if (remainingKcal < 200) {
-            if (remainingP > 15) {
+            let suggestion = "";
+
+            if (remainingKcal <= 0) {
                 suggestion = pick([
-                    `<b>Liko nedaug kalorijų (~${Math.round(remainingKcal)} kcal), bet trūksta baltymų.</b><br>Pasiūlymas: <i>150g liesos varškės arba Islandiško jogurto (Skyr)</i>.`,
-                    `<b>Mažai kalorijų (~${Math.round(remainingKcal)} kcal), didelis baltymų poreikis.</b><br>Pasiūlymas: <i>Kiaušinio baltymo omletas arba baltyminis kokteilis su vandeniu</i>.`,
-                    `<b>Tik ~${Math.round(remainingKcal)} kcal liko, griebkite baltymų!</b><br>Pasiūlymas: <i>Keletą riekelių lieso kumpio arba virtą kiaušinį</i>.`
+                    "<b>Jūsų dienos kalorijų norma jau užpildyta!</b><br>Jei vis dar jaučiate alkį, rekomenduojame išgerti vandens arba suvalgyti lengvų daržovių salotų.",
+                    "<b>Kalorijų tikslas pasiektas!</b><br>Geriausia būtų likti prie vandens ar nesaldintos arbatos. Jei labai norisi ko nors kramtyti – agurkas yra puikus pasirinkimas."
                 ]);
+            } else if (remainingKcal < 200) {
+                if (remainingP > 15) {
+                    suggestion = `<b>Liko nedaug kalorijų (~${Math.round(remainingKcal)} kcal), bet trūksta baltymų.</b><br>Pasiūlymas: <i>150g liesos varškės arba Skyr jogurto</i>.`;
+                } else {
+                    suggestion = `<b>Liko visai nedaug (~${Math.round(remainingKcal)} kcal).</b><br>Galite suvalgyti vieną nedidelį vaisių (pvz., obuolį ar mandariną), arba mažą saują uogų.`;
+                }
             } else {
-                suggestion = pick([
-                    `<b>Liko visai nedaug (~${Math.round(remainingKcal)} kcal).</b><br>Galite suvalgyti vieną nedidelį vaisių (pvz., obuolį ar didelį mandariną), arba mažą saują uogų.`,
-                    `<b>Mažas likutis (~${Math.round(remainingKcal)} kcal).</b><br>Rekomenduojame saują mėlynių arba porą ryžių trapučių.`,
-                    `<b>Pabaigai liko ~${Math.round(remainingKcal)} kcal.</b><br>Geriausia tiktų daržovės su trupučiu humuso arba tiesiog stiklinė kefyro.`
-                ]);
+                if (remainingP > 25) {
+                    suggestion = `<b>Liko tarpinis valgis (~${Math.round(remainingKcal)} kcal), kuriame trūksta baltymų.</b><br>Pasiūlymas: <i>Tuno salotos, kiaušinio omletas, vištienos krūtinėlė arba baltyminis kokteilis</i>.`;
+                } else if (remainingF > 15) {
+                    suggestion = `<b>Liko apie ~${Math.round(remainingKcal)} kcal. Reikia sveikų riebalų.</b><br>Pasiūlymas: <i>Sauja riešutų (~30g) arba pusė avokado su trapučiu</i>.`;
+                } else {
+                    suggestion = `<b>Liko dar pakankamai kalorijų užkandžiui (~${Math.round(remainingKcal)} kcal).</b><br>Pasiūlymas: <i>Dubenėlis košės arba pilno grūdo sumuštinis su sūriu/liesa mėsa</i>.`;
+                }
             }
-        } else if (remainingKcal >= 200 && remainingKcal <= 500) {
-            if (remainingP > 25) {
-                suggestion = pick([
-                    `<b>Liko smagus užkandis (~${Math.round(remainingKcal)} kcal), tačiau labai trūksta baltymų!</b><br>Rekomendacija: <i>Baltyminis kokteilis, 2 kietai virti kiaušiniai, arba varškės desertas su uogomis</i>.`,
-                    `<b>Tarpinis valgis (~${Math.round(remainingKcal)} kcal) su daug baltymų.</b><br>Rekomendacija: <i>Tunas savo sultyse su agurkais arba pakelis neriebios varškės su prieskoniais</i>.`,
-                    `<b>Reikia baltymų (~${Math.round(remainingKcal)} kcal ribose)!</b><br>Rekomendacija: <i>Graikiškas jogurtas su keliais riešutais arba vištienos krūtinėlės salotos</i>.`
-                ]);
-            } else if (remainingF > 15) {
-                suggestion = pick([
-                    `<b>Liko apie ${Math.round(remainingKcal)} kcal, bet dienai trūksta sveikų riebalų.</b><br>Rekomendacija: <i>Sauja mėgstamų riešutų (apie 30g), pusė avokado su trapučiu, arba žemės riešutų sviestas su obuoliu</i>.`,
-                    `<b>Riebalų deficitas (~${Math.round(remainingKcal)} kcal).</b><br>Rekomendacija: <i>Moliūgų sėklų sauja arba graikiniai riešutai</i>.`,
-                    `<b>Sutvarkykime riebalus (~${Math.round(remainingKcal)} kcal).</b><br>Rekomendacija: <i>Alyvuogės arba riebesnės žuvies (pvz. lašišos) užkandis</i>.`
-                ]);
-            } else {
-                suggestion = pick([
-                    `<b>Liko dar pakankamai kalorijų geram užkandžiui (~${Math.round(remainingKcal)} kcal).</b><br>Rekomendacija: <i>Dubenėlis avižinės košės, pilno grūdo sumuštinis su vištiena, ar lengvos salotos su feta sūriu</i>.`,
-                    `<b>Subalansuotas likutis (~${Math.round(remainingKcal)} kcal).</b><br>Rekomendacija: <i>Vaisių salotos su jogurtu arba trapučiai su sūriu</i>.`,
-                    `<b>Laisvė pasirinkti (~${Math.round(remainingKcal)} kcal).</b><br>Rekomendacija: <i>Sveikas batonėlis arba stiklinė pieno su keliais sausainiais (pilno grūdo)</i>.`
-                ]);
-            }
+
+            document.getElementById('aiFallbackSuggestionText').innerHTML = suggestion;
         } else {
-            // Daugiau nei 500 kcal
-            if (remainingP > 30) {
-                suggestion = pick([
-                    `<b>Dar turite laisvės pilnam patiekalui (~${Math.round(remainingKcal)} kcal), tačiau ryškiai trūksta baltymų!</b><br>Rekomendacija: <i>Kepta lašiša ar vištienos krūtinėlė su ryžiais ir garintomis daržovėmis</i>.`,
-                    `<b>Didelis likutis (~${Math.round(remainingKcal)} kcal), pasirūpinkite baltymais.</b><br>Rekomendacija: <i>Jautienos didepsnis (steak) su šviežiomis daržovėmis</i>.`,
-                    `<b>Pabaigai – baltyminė bomba (~${Math.round(remainingKcal)} kcal).</b><br>Rekomendacija: <i>Varškėčiai (virti ar kepti) su paprastu jogurtu</i>.`
-                ]);
-            } else {
-                suggestion = pick([
-                    `<b>Liko didelė norma – galite suvalgyti pilnavertį patiekalą (~${Math.round(remainingKcal)} kcal).</b><br>Pvz.: <i>Mėsos troškinys, makaronai su pomidorų padažu ir sūriu, ar didelis dubuo mėgstamų salotų</i>.`,
-                    `<b>Vis dar turite kokių ~${Math.round(remainingKcal)} kcal vakarienei.</b><br>Pvz.: <i>Lazanija, pica su daug daržovių ar gausios salotos su riešutais</i>.`,
-                    `<b>Didelė laisvė rinktis (~${Math.round(remainingKcal)} kcal).</b><br>Pvz.: <i>Wok keptuvėje ruošti makaronai su daržovėmis ir mėsa</i>.`
-                ]);
-            }
+            // Aktyvus AI režimas
+            document.getElementById('aiNoKeyWrapper').classList.add('hidden');
+            document.getElementById('aiActiveWrapper').classList.remove('hidden');
+            document.getElementById('aiResultCard').classList.add('hidden');
+            document.getElementById('aiLoader').classList.add('hidden');
+            document.getElementById('aiUserPrompt').value = '';
+
+            // Nustatome valgio tipą pagal laiką
+            const hour = new Date().getHours();
+            const mealSelect = document.getElementById('aiMealType');
+            if (hour < 11) mealSelect.value = 'breakfast';
+            else if (hour >= 11 && hour < 17) mealSelect.value = 'lunch';
+            else mealSelect.value = 'dinner';
         }
 
-        document.getElementById('aiSuggestionText').innerHTML = suggestion;
         this.showModal('aiSuggestModal');
+    },
+
+    async generateMealSuggestionWithAI() {
+        const p = this.data.profile;
+        const apiKey = p.geminiApiKey;
+        if (!apiKey) return alert("Nerastas API raktas!");
+
+        const c = this.data.consumedToday;
+        const targetKcal = p.eatBackCalories !== false ? p.tdee + (c.trainingKcal || 0) : p.tdee;
+        const remainingKcal = Math.max(0, targetKcal - c.totalKcal);
+        
+        const remainingP = Math.max(0, p.macros.protein - c.totalProtein);
+        const remainingF = Math.max(0, p.macros.fat - c.totalFat);
+        const remainingC = Math.max(0, p.macros.carbs - c.totalCarbs);
+
+        const mealType = document.getElementById('aiMealType').value;
+        const userPrompt = document.getElementById('aiUserPrompt').value.trim();
+
+        const loader = document.getElementById('aiLoader');
+        const resultCard = document.getElementById('aiResultCard');
+        const generateBtn = document.getElementById('aiGenerateBtn');
+
+        loader.classList.remove('hidden');
+        resultCard.classList.add('hidden');
+        generateBtn.disabled = true;
+
+        let mealTypeLt = "užkandį";
+        let targetShare = 0.15;
+        if (mealType === 'breakfast') { mealTypeLt = "pusryčius"; targetShare = 0.30; }
+        else if (mealType === 'lunch') { mealTypeLt = "pietūs"; targetShare = 0.40; }
+        else if (mealType === 'dinner') { mealTypeLt = "vakarienė"; targetShare = 0.25; }
+
+        let targetVal = remainingKcal * targetShare;
+        if (targetVal < 100) targetVal = remainingKcal;
+        if (targetVal > 600) targetVal = 450;
+
+        let restrictionPrompt = "";
+        if (mealType === 'dinner' && p.avoidDairyInEvening) {
+            restrictionPrompt = "GRIEŽTAI NENAUDOK pieno produktų (varškės, jogurto, sūrio, kefyro, pieno ir pan.) šiame patiekale, nes vartotojas jų vengia vakare.";
+        }
+
+        const promptText = `Esate profesionalus mitybos asistentas. Sugeneruokite vieną skanų ir sveiką patiekalą, tinkantį mitybos tipui: "${mealTypeLt}".
+Vartotojo tikslas ir dienos kalorijų biudžetas:
+- Šiam valgiui skirta kalorijų: ~${Math.round(targetVal)} kcal.
+- Vartotojo visai likusiai dienai liko: ${Math.round(remainingKcal)} kcal (Baltymai: ${Math.round(remainingP)}g, Riebalai: ${Math.round(remainingF)}g, Angliavandeniai: ${Math.round(remainingC)}g).
+- Papildomas vartotojo pageidavimas ar šaldytuvo turinys: "${userPrompt ? userPrompt : "nėra"}".
+${restrictionPrompt}
+
+Reikalavimai:
+1. Recepto pavadinimas turi būti trumpas, aiškus, lietuvių kalba (pvz. "Kepta vištiena su cukinija").
+2. Recepto ingredientai ir trumpas paruošimo būdas (2-3 žingsniai) turi būti pateikti lietuviškai, aiškiai su gramais (pvz. "150g vištienos krūtinėlė, 100g cukinija...").
+3. Apskaičiuokite maistinę vertę. Ji privalo būti labai tiksli. Kcal turi būti arti ~${Math.round(targetVal)} kcal.
+4. Atsakymą pateikite išskirtinai tik kaip JSON formatą. Nenaudokite markdown pakuotės (jokių \`\`\`json ar \`\`\`).
+
+JSON schema:
+{
+  "name": "Patiekalo pavadinimas",
+  "ingredients": "Sąrašas ingredientų ir gaminimo eiga",
+  "kcal": 350,
+  "protein": 25,
+  "fat": 10,
+  "carbs": 40,
+  "fiber": 5
+}`;
+
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [{
+                            text: promptText
+                        }]
+                    }],
+                    generationConfig: {
+                        responseMimeType: "application/json"
+                    }
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`API returned status ${response.status}`);
+            }
+
+            const data = await response.json();
+            const responseText = data.candidates[0].content.parts[0].text;
+            const parsed = JSON.parse(responseText);
+
+            if (!parsed.name || !parsed.kcal) {
+                throw new Error("JSON struct was invalid.");
+            }
+
+            this.lastAiGeneratedMeal = parsed;
+
+            document.getElementById('aiGeneratedName').innerText = parsed.name;
+            document.getElementById('aiKcalVal').innerText = Math.round(parsed.kcal);
+            document.getElementById('aiProteinVal').innerText = `${Math.round(parsed.protein || 0)}g`;
+            document.getElementById('aiFatVal').innerText = `${Math.round(parsed.fat || 0)}g`;
+            document.getElementById('aiCarbsVal').innerText = `${Math.round(parsed.carbs || 0)}g`;
+            document.getElementById('aiGeneratedIngredients').innerHTML = parsed.ingredients;
+
+            loader.classList.add('hidden');
+            resultCard.classList.remove('hidden');
+
+        } catch (err) {
+            console.error(err);
+            alert("Klaida kreipiantis į AI arba apdorojant atsakymą. Patikrinkite savo API raktą ir interneto ryšį!");
+            loader.classList.add('hidden');
+        } finally {
+            generateBtn.disabled = false;
+        }
+    },
+
+    addAiGeneratedMealToLog() {
+        const meal = this.lastAiGeneratedMeal;
+        if (!meal) return;
+
+        const cT = this.data.consumedToday;
+
+        const consumed = {
+            id: Date.now() + Math.floor(Math.random() * 100),
+            timestamp: new Date().toLocaleTimeString('lt-LT', { hour: '2-digit', minute: '2-digit' }),
+            name: `AI: ${meal.name}`,
+            weight: 300,
+            displayAmount: `1 porcija`,
+            type: 'meal',
+            kcal: meal.kcal,
+            protein: meal.protein || 0,
+            fat: meal.fat || 0,
+            carbs: meal.carbs || 0,
+            fiber: meal.fiber || 0
+        };
+
+        cT.items.push(consumed);
+        cT.totalKcal += consumed.kcal;
+        cT.totalProtein += consumed.protein;
+        cT.totalFat += consumed.fat;
+        cT.totalCarbs += consumed.carbs;
+        cT.totalFiber += consumed.fiber;
+
+        this.saveData();
+        this.updateSummaryUI();
+        this.renderTodayMeals();
+
+        this.lastAiGeneratedMeal = null;
+        this.closeModal('aiSuggestModal');
+
+        alert(`Patiekalas "${consumed.name}" sėkmingai įtrauktas į suvestinę!`);
     },
 
     setupOnlineSearch() {
@@ -2330,7 +2465,55 @@ const app = {
         }
 
         const targetKcal = p.eatBackCalories !== false ? p.tdee + (this.data.consumedToday.trainingKcal || 0) : p.tdee;
-        document.getElementById('menuGeneratorTdee').innerText = targetKcal;
+        document.getElementById('menuGeneratorTdee').innerText = Math.round(targetKcal);
+
+        const consumedTodayKcal = this.data.consumedToday.totalKcal || 0;
+        const remainingKcal = Math.max(0, targetKcal - consumedTodayKcal);
+
+        // Nustatome laukelius kalorijų režimui
+        document.getElementById('remainingKcalVal').innerText = Math.round(remainingKcal);
+        document.getElementById('fullKcalVal').innerText = Math.round(targetKcal);
+
+        // Automatinis kalorijų režimo nustatymas
+        const calModeSelect = document.getElementById('menuCalorieMode');
+        if (remainingKcal < 200) {
+            calModeSelect.value = 'full';
+        } else {
+            calModeSelect.value = 'remaining';
+        }
+
+        // Automatinis valgių pasirinkimas pagal paros laiką
+        const hour = new Date().getHours();
+        const genBreakfast = document.getElementById('genBreakfast');
+        const genLunch = document.getElementById('genLunch');
+        const genDinner = document.getElementById('genDinner');
+        const genSnack = document.getElementById('genSnack');
+
+        // Užkandžio lauko rodymas/slėpimas pagal bendrą normą
+        const snackWrapper = document.getElementById('genSnackWrapper');
+        if (targetKcal > 1850) {
+            if (snackWrapper) snackWrapper.classList.remove('hidden');
+        } else {
+            if (snackWrapper) snackWrapper.classList.add('hidden');
+            if (genSnack) genSnack.checked = false;
+        }
+
+        if (hour < 11) {
+            // Rytas: generuojame viską
+            genBreakfast.checked = true;
+            genLunch.checked = true;
+            genDinner.checked = true;
+        } else if (hour >= 11 && hour < 16) {
+            // Pietūs: pusryčiai jau praėjo
+            genBreakfast.checked = false;
+            genLunch.checked = true;
+            genDinner.checked = true;
+        } else {
+            // Vakaras: liko tik vakarienė
+            genBreakfast.checked = false;
+            genLunch.checked = false;
+            genDinner.checked = true;
+        }
 
         if (this.lastGeneratedMenu) {
             document.getElementById('menuGeneratorEmptyState').classList.add('hidden');
@@ -2367,34 +2550,24 @@ const app = {
 
         // 2. Vertinimas pagal paros laiką
         if (slotType === 'breakfast') {
-            // Ryte angliavandeniai gerai
             if (carbPct > 0.40) score += 25;
             if (carbPct < 0.20) score -= 35;
-            // Raktiniai žodžiai
             if (/košė|omlet|blyn|sumuštin|kiaušin|dribsn|jogurt|skyru/i.test(nameLower)) score += 30;
-            // Netinkami pusryčiams žodžiai
             if (/sriuba|kepsnys|troškinys|wok|vakarienė/i.test(nameLower)) score -= 40;
         } 
         else if (slotType === 'lunch') {
-            // Pietums reikia balanso
             if (proteinPct > 0.20 && carbPct > 0.25 && carbPct < 0.55) score += 25;
-            // Raktiniai žodžiai
             if (/piet|sriuba|kepsnys|troškinys|wok|makaron|ryž|grik|višt|lašiš|mės/i.test(nameLower)) score += 30;
-            // Netinkami
             if (/košė|dribsniai|sūrelis/i.test(nameLower)) score -= 30;
         } 
         else if (slotType === 'dinner') {
-            // Vakarienei - low-carb, high-protein
             if (carbPct < 0.25 || carbs < 15) score += 35;
-            if (carbPct > 0.40) score -= 45; // ribojam angliavandenius
+            if (carbPct > 0.40) score -= 45;
             if (proteinPct > 0.30) score += 15;
-            // Raktiniai žodžiai
             if (/salot|žuvis|tunas|varšk|omlet|kiaušin|krūtinėlė/i.test(nameLower)) score += 30;
-            // Angliavandenių bombos vakarienei
             if (/makaron|ryžiai|bulv|blyn|košė|dribsn|cukr|medus/i.test(nameLower)) score -= 50;
         } 
         else if (slotType === 'snack') {
-            // Užkandis turi būti lengvas
             if (kcal >= 100 && kcal <= 350) score += 25;
             if (kcal > 450) score -= 30;
             if (/užkand|vais|riešut|obuol|banan|kefyr|jogurt|baton/i.test(nameLower)) score += 20;
@@ -2408,6 +2581,15 @@ const app = {
         const avoidDairy = p.avoidDairyInEvening === true;
         const targetKcal = p.eatBackCalories !== false ? p.tdee + (this.data.consumedToday.trainingKcal || 0) : p.tdee;
 
+        const genBreakfast = document.getElementById('genBreakfast').checked;
+        const genLunch = document.getElementById('genLunch').checked;
+        const genDinner = document.getElementById('genDinner').checked;
+        const genSnack = document.getElementById('genSnack') ? document.getElementById('genSnack').checked : false;
+
+        if (!genBreakfast && !genLunch && !genDinner && !genSnack) {
+            return alert("Pasirinkite bent vieną valgį generavimui!");
+        }
+
         // Sujungiame asmeninius receptus ir meniu šablonus
         const userMeals = this.data.meals.map(m => ({ ...m, isUserMeal: true }));
         const candidates = [...userMeals, ...this.menuTemplates];
@@ -2417,31 +2599,46 @@ const app = {
         }
 
         // 1. Nustatome valgių skaičių ir kalorijų rėžius
-        let mealSlots = [];
+        let allSlots = [];
         if (targetKcal > 1850) {
-            // 4 valgiai: Pusryčiai (30%), Pietūs (35%), Užkandis (15%), Vakarienė (20%)
-            mealSlots = [
-                { type: 'breakfast', label: 'breakfast', targetShare: 0.30 },
-                { type: 'lunch', label: 'lunch', targetShare: 0.35 },
-                { type: 'snack', label: 'snack', targetShare: 0.15 },
-                { type: 'dinner', label: 'dinner', targetShare: 0.20 }
+            allSlots = [
+                { type: 'breakfast', label: 'Ryte (Pusryčiai)', targetShare: 0.30, enabled: genBreakfast },
+                { type: 'lunch', label: 'Dieną (Pietūs)', targetShare: 0.35, enabled: genLunch },
+                { type: 'snack', label: 'Užkandis', targetShare: 0.15, enabled: genSnack },
+                { type: 'dinner', label: 'Vakare (Vakarienė)', targetShare: 0.20, enabled: genDinner }
             ];
-            document.getElementById('snackCard').classList.remove('hidden');
         } else {
-            // 3 valgiai: Pusryčiai (35%), Pietūs (40%), Vakarienė (25%)
-            mealSlots = [
-                { type: 'breakfast', label: 'breakfast', targetShare: 0.35 },
-                { type: 'lunch', label: 'lunch', targetShare: 0.40 },
-                { type: 'dinner', label: 'dinner', targetShare: 0.25 }
+            allSlots = [
+                { type: 'breakfast', label: 'Ryte (Pusryčiai)', targetShare: 0.35, enabled: genBreakfast },
+                { type: 'lunch', label: 'Dieną (Pietūs)', targetShare: 0.40, enabled: genLunch },
+                { type: 'dinner', label: 'Vakare (Vakarienė)', targetShare: 0.25, enabled: genDinner }
             ];
-            document.getElementById('snackCard').classList.add('hidden');
+            if (genSnack) {
+                allSlots.push({ type: 'snack', label: 'Užkandis', targetShare: 0.15, enabled: true });
+            }
+        }
+
+        const activeSlots = allSlots.filter(s => s.enabled);
+        const totalShareSum = activeSlots.reduce((sum, s) => sum + s.targetShare, 0);
+
+        // Nustatome biudžetą
+        const calMode = document.getElementById('menuCalorieMode').value; // 'remaining' or 'full'
+        const consumedTodayKcal = this.data.consumedToday.totalKcal || 0;
+        let budgetKcal = targetKcal;
+        
+        if (calMode === 'remaining') {
+            budgetKcal = targetKcal - consumedTodayKcal;
+            if (budgetKcal < 100) {
+                return alert(`Likusių kalorijų kiekis per mažas (~${Math.round(budgetKcal)} kcal). Pasirinkite 'Planuoti pilną dienos normą'.`);
+            }
         }
 
         const generatedMenu = [];
+        const selectedNames = new Set(); // Unikalumo kontrolei
 
         // Kiekvienam slotui renkame patiekalą
-        mealSlots.forEach(slot => {
-            const slotTargetKcal = targetKcal * slot.targetShare;
+        activeSlots.forEach(slot => {
+            const slotTargetKcal = budgetKcal * (slot.targetShare / totalShareSum);
 
             // Įvertiname visus kandidatus pagal balą šiam slotui
             const scoredCandidates = candidates.map(c => {
@@ -2449,10 +2646,15 @@ const app = {
                 return { item: c, score: score };
             });
 
-            // Atrenkame tik gerus kandidatus (balas >= 30)
-            let filtered = scoredCandidates.filter(c => c.score >= 30);
+            // Atrenkame tik gerus kandidatus (balas >= 30) ir kurie dar nebuvo pasirinkti
+            let filtered = scoredCandidates.filter(c => c.score >= 30 && !selectedNames.has(c.item.name));
 
-            // Jeigu neradome nieko su balu >= 30, paimame visus ir surūšiuojame pagal balą
+            // Jeigu neradome nieko, kas nesikartotų ir surinktų >= 30, atmetame tik unikalumo filtrą
+            if (filtered.length === 0) {
+                filtered = scoredCandidates.filter(c => !selectedNames.has(c.item.name));
+            }
+            
+            // Jei kandidatų išvis nebeliko, imame bet ką
             if (filtered.length === 0) {
                 filtered = scoredCandidates;
             }
@@ -2460,9 +2662,11 @@ const app = {
             // Rūšiuojame mažėjimo tvarka
             filtered.sort((a, b) => b.score - a.score);
 
-            // Kad nebūtų visada tas pats meniu, pasirenkame atsitiktinai iš 3 geriausių kandidatų
+            // Pasirenkame atsitiktinai iš 3 geriausių kandidatų
             const poolSize = Math.min(3, filtered.length);
             const selected = filtered[Math.floor(Math.random() * poolSize)].item;
+
+            selectedNames.add(selected.name);
 
             // Sukuriame gilaus kopijavimo patiekalo objektą koregavimui
             const mealCopy = JSON.parse(JSON.stringify(selected));
@@ -2471,9 +2675,16 @@ const app = {
             const baseKcal = mealCopy.kcal || 1;
             let scale = slotTargetKcal / baseKcal;
 
-            // Saugiklis: neleidžiame ekstremalių dydžių
-            if (scale < 0.5) scale = 0.5;
-            if (scale > 1.8) scale = 1.8;
+            // Saugiklis pagal patiekalo tipą
+            if (mealCopy.isUserMeal) {
+                // Vartotojo patiekalams (kurių receptai dažnai suvedami visam puodui) leidžiame mažėti be apribojimų
+                if (scale < 0.01) scale = 0.01;
+                if (scale > 3.0) scale = 3.0;
+            } else {
+                // Šablonams (kurie suvesti kaip viena porcija) neleidžiame tapti mikroskopiniais
+                if (scale < 0.5) scale = 0.5;
+                if (scale > 1.8) scale = 1.8;
+            }
 
             mealCopy.scale = scale;
             mealCopy.kcal = baseKcal * scale;
@@ -2483,21 +2694,43 @@ const app = {
             mealCopy.fiber = (mealCopy.fiber || mealCopy.totalFiber || 0) * scale;
             
             // Patiekalo svorio ir aprašo pritaikymas
-            if (mealCopy.ingredients && Array.isArray(mealCopy.ingredients)) {
-                mealCopy.ingredients.forEach(ing => {
-                    ing.weight = ing.weight * scale;
-                });
-                
-                // Gražiai suformatuota sudėtis
-                mealCopy.portionText = mealCopy.ingredients.map(ing => {
-                    return `${Math.round(ing.weight)}${ing.unit || 'g'} ${ing.name}`;
-                }).join(', ');
-                
-                // Visas svoris yra suma
-                mealCopy.totalWeight = mealCopy.ingredients.reduce((sum, ing) => sum + ing.weight, 0);
+            let finalWeight = (mealCopy.totalWeight || 300) * scale;
+            
+            // Saugiklis, kad nesiūlytume suvalgyti 2kg skysto patiekalo
+            let needsAdditionalNote = false;
+            let originalKcal = mealCopy.kcal;
+            if (finalWeight > 500) {
+                const weightRatio = 500 / finalWeight;
+                finalWeight = 500;
+                mealCopy.kcal = mealCopy.kcal * weightRatio;
+                mealCopy.protein = mealCopy.protein * weightRatio;
+                mealCopy.fat = mealCopy.fat * weightRatio;
+                mealCopy.carbs = mealCopy.carbs * weightRatio;
+                mealCopy.fiber = mealCopy.fiber * weightRatio;
+                needsAdditionalNote = true;
+            }
+
+            mealCopy.totalWeight = finalWeight;
+
+            if (mealCopy.isUserMeal) {
+                // Vartotojo dideliems receptams nurodome kiek suvalgyti iš paruošto patiekalo
+                mealCopy.portionText = `Suvalgyti <strong>${Math.round(finalWeight)}g</strong> paruošto patiekalo.`;
+                if (needsAdditionalNote) {
+                    const diffKcal = Math.round(originalKcal - mealCopy.kcal);
+                    mealCopy.portionText += `<br><span style="color: var(--macro-protein); font-size: 11px;">⚠️ Patiekalas nekaloringas. Kad surinktumėte trūkstamas ~${diffKcal} kcal, šalia suvalgykite riekę duonos, riešutų ar vaisių.</span>`;
+                }
             } else {
-                mealCopy.totalWeight = (mealCopy.totalWeight || 300) * scale;
-                mealCopy.portionText = `Koreguota porcija: ~${Math.round(mealCopy.totalWeight)}g`;
+                // Šablonams pritaikome ingredientų svorį
+                if (mealCopy.ingredients && Array.isArray(mealCopy.ingredients)) {
+                    mealCopy.ingredients.forEach(ing => {
+                        ing.weight = ing.weight * scale * (needsAdditionalNote ? (500 / ((mealCopy.totalWeight || 300) * scale)) : 1);
+                    });
+                    mealCopy.portionText = mealCopy.ingredients.map(ing => {
+                        return `${Math.round(ing.weight)}${ing.unit || 'g'} ${ing.name}`;
+                    }).join(', ');
+                } else {
+                    mealCopy.portionText = `Koreguota porcija: ~${Math.round(finalWeight)}g`;
+                }
             }
 
             mealCopy.slotType = slot.type;
@@ -2506,7 +2739,13 @@ const app = {
 
         this.lastGeneratedMenu = generatedMenu;
 
-        // 2. Atvaizduojame rezultatus UI
+        // Pirmiausia paslepiame visas valgių korteles
+        document.getElementById('breakfastCard').classList.add('hidden');
+        document.getElementById('lunchCard').classList.add('hidden');
+        document.getElementById('dinnerCard').classList.add('hidden');
+        if (document.getElementById('snackCard')) document.getElementById('snackCard').classList.add('hidden');
+
+        // Atvaizduojame rezultatus UI tik aktyvioms kortelėms
         let totalMenuKcal = 0;
         let totalMenuProtein = 0;
         let totalMenuFat = 0;
@@ -2520,6 +2759,9 @@ const app = {
 
             const slotPrefix = meal.slotType; // 'breakfast', 'lunch', 'dinner', 'snack'
             
+            const cardEl = document.getElementById(`${slotPrefix}Card`);
+            if (cardEl) cardEl.classList.remove('hidden');
+
             document.getElementById(`${slotPrefix}Kcal`).innerText = `${Math.round(meal.kcal)} kcal`;
             document.getElementById(`${slotPrefix}Content`).innerHTML = `
                 <strong style="color: var(--text-main); font-size: 15px;">${meal.name}</strong>
@@ -2527,13 +2769,13 @@ const app = {
                     B: ${Math.round(meal.protein)}g | R: ${Math.round(meal.fat)}g | A: ${Math.round(meal.carbs)}g
                 </div>
                 <div style="font-size: 12px; color: var(--primary); margin-top: 5px; font-style: italic;">
-                    Sudėtis: ${meal.portionText}
+                    Rekomenduojama: ${meal.portionText}
                 </div>
             `;
         });
 
         document.getElementById('menuTotalKcal').innerText = Math.round(totalMenuKcal);
-        document.getElementById('menuTargetKcal').innerText = Math.round(targetKcal);
+        document.getElementById('menuTargetKcal').innerText = Math.round(budgetKcal);
         document.getElementById('menuTotalMacros').innerHTML = `
             Baltymų: <strong>${Math.round(totalMenuProtein)}g</strong> | 
             Riebalų: <strong>${Math.round(totalMenuFat)}g</strong> | 
@@ -2554,7 +2796,6 @@ const app = {
         const cT = this.data.consumedToday;
 
         this.lastGeneratedMenu.forEach((meal, index) => {
-            // Sukuriame suvartojimo įrašą
             const consumed = {
                 id: Date.now() + index + Math.floor(Math.random() * 100),
                 timestamp: new Date().toLocaleTimeString('lt-LT', { hour: '2-digit', minute: '2-digit' }),
@@ -2581,14 +2822,12 @@ const app = {
         this.updateSummaryUI();
         this.renderTodayMeals();
         
-        // Išvalome laikiną sugeneruotą meniu
         this.lastGeneratedMenu = null;
 
         this.closeModal('menuGeneratorModal');
 
-        alert("Meniu sėkmingai pritaikytas! Visi patiekalai įtraukti į suvestinę.");
+        alert("Meniu sėkmingai pritaikytas! Patiekalai įtraukti į suvestinę.");
 
-        // Nukreipiame į Suvestinės kortelę
         document.querySelector('.nav-item[data-target="view-summary"]').click();
     }
 };

@@ -375,6 +375,13 @@
                                 <option value="true">Vengti (riboti pieno produktus vakarienei)</option>
                             </select>
                         </div>
+                        <div class="form-group">
+                            <label>Google Gemini API Raktas (nemokamam AI mitybos asistentui)</label>
+                            <input type="password" id="geminiApiKey" placeholder="Įveskite API raktą (pvz. AIzaSy...)">
+                            <div class="form-hint" style="margin-top: 4px;">
+                                API raktą galite nemokamai gauti <a href="https://aistudio.google.com/" target="_blank" style="color: var(--primary); text-decoration: underline;">Google AI Studio</a>.
+                            </div>
+                        </div>
                         <button type="submit" class="btn btn-primary w-100">Išsaugoti ir Skaičiuoti</button>
                     </form>
                 </div>
@@ -637,18 +644,80 @@
 
     <!-- AI Pasiūlymo Modal -->
     <div id="aiSuggestModal" class="modal">
-        <div class="glass-card modal-content" style="text-align: center;">
-            <div style="display: flex; justify-content: center; margin-bottom: 10px;">
-                <span class="material-icons-round" style="color: #a371f7; font-size: 40px;">auto_awesome</span>
-            </div>
-            <h3 style="margin-top:0; color: #a371f7;">Išmani rekomendacija</h3>
-
-            <div id="aiSuggestionText"
-                style="padding: 15px; background: rgba(0,0,0,0.2); border-radius: 8px; font-size: 15px; line-height: 1.5; margin-bottom: 20px; color: var(--text-main);">
-                Kraunama...
+        <div class="modal-content glass" style="max-height: 90vh; overflow-y: auto;">
+            <div class="modal-header">
+                <h2 style="display: flex; align-items: center; gap: 8px; color: #a371f7; font-size: 20px;">
+                    <span class="material-icons-round">auto_awesome</span> AI Mitybos Padėjėjas
+                </h2>
+                <button class="icon-btn" onclick="app.closeModal('aiSuggestModal')"><span
+                        class="material-icons-round">close</span></button>
             </div>
 
-            <button class="btn-primary" onclick="app.closeModal('aiSuggestModal')">Supratau, puiku!</button>
+            <!-- Kai nėra API rakto -->
+            <div id="aiNoKeyWrapper" class="text-center" style="padding: 20px 10px;">
+                <span class="material-icons-round" style="font-size: 48px; color: var(--text-muted); opacity: 0.5;">vpn_key_off</span>
+                <p style="margin-top: 15px; font-size: 14px; line-height: 1.5; color: var(--text-muted);">
+                    Norėdami naudotis tikru AI asistentu, įveskite nemokamą Gemini API raktą Profilio nustatymuose.
+                </p>
+                <a href="https://aistudio.google.com/" target="_blank" class="btn btn-primary mt-20" style="background: rgba(255,255,255,0.1); color: var(--text-main); font-size: 14px; padding: 10px 15px; border-radius: 8px;">
+                    Gauti nemokamą raktą ↗
+                </a>
+                
+                <hr style="border:none; border-top: 1px solid var(--glass-border); margin: 20px 0;">
+                
+                <p style="font-size: 13px; font-weight: 500; text-align: left; margin-bottom: 8px;">Atsarginis patarimas šiandienai:</p>
+                <div id="aiFallbackSuggestionText" style="padding: 12px; background: rgba(0,0,0,0.2); border-radius: 8px; font-size: 13px; text-align: left; line-height: 1.4; color: var(--text-main);">
+                    Kraunama...
+                </div>
+            </div>
+
+            <!-- Kai API raktas yra -->
+            <div id="aiActiveWrapper" class="hidden">
+                <div class="form-group">
+                    <label>Pasirinkite valgį:</label>
+                    <select id="aiMealType" style="background: rgba(0,0,0,0.2); border-color: var(--glass-border); color: var(--text-main); padding: 8px;">
+                        <option value="breakfast">Pusryčiai</option>
+                        <option value="lunch">Pietūs</option>
+                        <option value="dinner">Vakarienė</option>
+                        <option value="snack">Užkandis</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Pageidavimai / ingredientai (neprivaloma):</label>
+                    <textarea id="aiUserPrompt" placeholder="Pvz. Turiu kiaušinių, avokadą. Nenaudok pomidorų..." rows="3" 
+                        style="width:100%; padding: 10px; border-radius: var(--radius-sm); border: 1px solid var(--glass-border); background: rgba(0,0,0,0.2); color: var(--text-main); font-size: 14px; font-family: inherit; resize: vertical; outline: none;"></textarea>
+                </div>
+                
+                <button type="button" id="aiGenerateBtn" class="btn btn-primary w-100" style="background: linear-gradient(135deg, #a371f7, #6e40c9); border:none;" onclick="app.generateMealSuggestionWithAI()">
+                    <span class="material-icons-round">auto_awesome</span> Generuoti receptą su AI
+                </button>
+
+                <!-- Krovimosi rodinys -->
+                <div id="aiLoader" class="text-center mt-20 hidden" style="color:#a371f7; font-size: 14px; padding: 20px 0;">
+                    <span class="material-icons-round" style="animation: spin 2s linear infinite; font-size: 32px;">sync</span><br>
+                    <span style="margin-top: 8px; display: inline-block;">AI kuria receptą pagal jūsų kalorijas...</span>
+                </div>
+
+                <!-- Rezultato kortelė -->
+                <div id="aiResultCard" class="glass-card mt-20 hidden" style="border-left: 4px solid #a371f7; padding: 15px;">
+                    <h3 id="aiGeneratedName" style="color: var(--text-main); font-size: 16px; margin-bottom: 8px;">Patiekalo pavadinimas</h3>
+                    
+                    <div style="display: flex; gap: 8px; margin-bottom: 12px; font-size: 12px; background: rgba(0,0,0,0.2); padding: 8px; border-radius: 6px; justify-content: space-around;">
+                        <div>Kcal: <strong id="aiKcalVal" style="color: var(--primary);">0</strong></div>
+                        <div>B: <strong id="aiProteinVal">0g</strong></div>
+                        <div>R: <strong id="aiFatVal">0g</strong></div>
+                        <div>A: <strong id="aiCarbsVal">0g</strong></div>
+                    </div>
+
+                    <div id="aiGeneratedIngredients" style="font-size: 13px; line-height: 1.5; color: var(--text-main); white-space: pre-line; max-height: 250px; overflow-y: auto; padding-right: 5px;">
+                        Recepto eiga...
+                    </div>
+                    
+                    <button type="button" class="btn btn-primary w-100 mt-20" style="background: var(--success); font-size: 14px; padding: 10px;" onclick="app.addAiGeneratedMealToLog()">
+                        <span class="material-icons-round">check_circle</span> Įtraukti į suvestinę
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -665,9 +734,37 @@
                 Sugeneruokite 3–4 patiekalų planą jūsų dienos normai: <strong id="menuGeneratorTdee">0</strong> kcal
             </div>
 
+            <!-- Meniu nustatymai -->
+            <div class="glass-card" style="padding: 15px; margin-bottom: 15px; background: rgba(0,0,0,0.1);">
+                <div style="margin-bottom: 12px;">
+                    <label style="font-size: 13px; color: var(--text-muted); display: block; margin-bottom: 6px;">Kuriuos valgius planuoti?</label>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <label style="display: flex; align-items: center; gap: 4px; font-size: 13px; background: rgba(255,255,255,0.05); padding: 4px 10px; border-radius: 20px; cursor: pointer; margin: 0; width: auto;">
+                            <input type="checkbox" id="genBreakfast" checked style="width: auto; height: auto; margin: 0;"> Rytas
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 4px; font-size: 13px; background: rgba(255,255,255,0.05); padding: 4px 10px; border-radius: 20px; cursor: pointer; margin: 0; width: auto;">
+                            <input type="checkbox" id="genLunch" checked style="width: auto; height: auto; margin: 0;"> Diena
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 4px; font-size: 13px; background: rgba(255,255,255,0.05); padding: 4px 10px; border-radius: 20px; cursor: pointer; margin: 0; width: auto;">
+                            <input type="checkbox" id="genDinner" checked style="width: auto; height: auto; margin: 0;"> Vakaras
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 4px; font-size: 13px; background: rgba(255,255,255,0.05); padding: 4px 10px; border-radius: 20px; cursor: pointer; margin: 0; width: auto;" id="genSnackWrapper">
+                            <input type="checkbox" id="genSnack" style="width: auto; height: auto; margin: 0;"> Užkandis
+                        </label>
+                    </div>
+                </div>
+                <div>
+                    <label style="font-size: 13px; color: var(--text-muted); display: block; margin-bottom: 6px;">Kalorijų biudžetas:</label>
+                    <select id="menuCalorieMode" style="padding: 8px; font-size: 14px; background: rgba(0,0,0,0.3); border-color: var(--glass-border); border-radius: var(--radius-sm); color: var(--text-main); width: 100%;">
+                        <option value="remaining">Planuoti likusioms dienos kalorijoms (<span id="remainingKcalVal">0</span> kcal)</option>
+                        <option value="full">Planuoti pilną dienos normą (<span id="fullKcalVal">0</span> kcal)</option>
+                    </select>
+                </div>
+            </div>
+
             <!-- Meniu rezultatas -->
             <div id="generatedMenuContainer" class="hidden">
-                <div class="glass-card mt-10" style="padding: 12px; border-left: 4px solid #ffaa00;">
+                <div class="glass-card mt-10" id="breakfastCard" style="padding: 12px; border-left: 4px solid #ffaa00;">
                     <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px; margin-bottom: 8px;">
                         <span style="display: flex; align-items: center; gap: 6px; font-weight: 600; color: #ffaa00;">
                             <span class="material-icons-round">wb_sunny</span> Ryte (Pusryčiai)
@@ -677,7 +774,7 @@
                     <div id="breakfastContent" style="font-size: 14px; color: var(--text-main); line-height: 1.4;">...</div>
                 </div>
 
-                <div class="glass-card mt-15" style="padding: 12px; border-left: 4px solid #ff5500;">
+                <div class="glass-card mt-15" id="lunchCard" style="padding: 12px; border-left: 4px solid #ff5500;">
                     <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px; margin-bottom: 8px;">
                         <span style="display: flex; align-items: center; gap: 6px; font-weight: 600; color: #ff5500;">
                             <span class="material-icons-round">sunny</span> Dieną (Pietūs)
@@ -687,7 +784,7 @@
                     <div id="lunchContent" style="font-size: 14px; color: var(--text-main); line-height: 1.4;">...</div>
                 </div>
 
-                <div class="glass-card mt-15" style="padding: 12px; border-left: 4px solid #00d2ff;">
+                <div class="glass-card mt-15" id="dinnerCard" style="padding: 12px; border-left: 4px solid #00d2ff;">
                     <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px; margin-bottom: 8px;">
                         <span style="display: flex; align-items: center; gap: 6px; font-weight: 600; color: #00d2ff;">
                             <span class="material-icons-round">nights_stay</span> Vakare (Vakarienė)
