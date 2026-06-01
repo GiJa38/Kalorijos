@@ -16,6 +16,7 @@ const app = {
             goal: 0,
             eatBackCalories: true,
             avoidDairyInEvening: false,
+            geminiApiKey: '',
             tdee: 0, // Total Daily Energy Expenditure (Poreikis)
             macros: { protein: 0, fat: 0, carbs: 0, fiber: 0 }
         },
@@ -296,6 +297,11 @@ const app = {
                 this.data.profile.avoidDairyInEvening = avoidDairySel.value === 'true';
             }
 
+            const geminiApiKeyInput = document.getElementById('geminiApiKey');
+            if (geminiApiKeyInput) {
+                this.data.profile.geminiApiKey = geminiApiKeyInput.value.trim();
+            }
+
             this.calculateDailyNeeds();
         };
 
@@ -335,6 +341,9 @@ const app = {
         }
         if (document.getElementById('avoidDairyInEvening')) {
             document.getElementById('avoidDairyInEvening').value = p.avoidDairyInEvening === true ? 'true' : 'false';
+        }
+        if (document.getElementById('geminiApiKey')) {
+            document.getElementById('geminiApiKey').value = p.geminiApiKey || '';
         }
     },
 
