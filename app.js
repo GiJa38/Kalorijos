@@ -1925,10 +1925,20 @@ JSON schema:
             });
 
             if (!response.ok) {
-                throw new Error(`API returned status ${response.status}`);
+                let errorMsg = `API returned status ${response.status}`;
+                try {
+                    const errData = await response.json();
+                    if (errData && errData.error && errData.error.message) {
+                        errorMsg += `: ${errData.error.message}`;
+                    }
+                } catch (_) {}
+                throw new Error(errorMsg);
             }
 
             const data = await response.json();
+            if (!data.candidates || data.candidates.length === 0 || !data.candidates[0].content || !data.candidates[0].content.parts || data.candidates[0].content.parts.length === 0) {
+                throw new Error("API response does not contain candidates content. Possibly flagged or blocked.");
+            }
             const responseText = data.candidates[0].content.parts[0].text;
             const parsed = JSON.parse(responseText);
 
@@ -1950,7 +1960,7 @@ JSON schema:
 
         } catch (err) {
             console.error(err);
-            alert("Klaida kreipiantis į AI arba apdorojant atsakymą. Patikrinkite savo API raktą ir interneto ryšį!");
+            alert(`Klaida kreipiantis į AI arba apdorojant atsakymą.\n\nDetalės: ${err.message}\n\nPatikrinkite savo API raktą, regiono apribojimus ir interneto ryšį!`);
             loader.classList.add('hidden');
         } finally {
             generateBtn.disabled = false;
