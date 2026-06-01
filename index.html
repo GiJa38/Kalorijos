@@ -19,7 +19,7 @@
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js?v=1.5').then((reg) => {
+                navigator.serviceWorker.register('sw.js?v=1.6').then((reg) => {
                     console.log('SW registruotas:', reg.scope);
                 }).catch((err) => {
                     console.log('SW klaida:', err);
@@ -39,7 +39,7 @@
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-    <link rel="stylesheet" href="style.css?v=1.5">
+    <link rel="stylesheet" href="style.css?v=1.6">
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 </head>
 
@@ -421,6 +421,9 @@
                         jūsų istoriją, pridėtus produktus ir patiekalus iš jūsų įrenginio. Atstatyti nebus galima.</p>
                     <button class="btn btn-primary w-100" style="background: var(--danger);"
                         onclick="app.resetApp()">Ištrinti ir atstatyti programėlę</button>
+                </div>
+                <div style="text-align: center; font-size: 11px; color: var(--text-muted); margin-top: 20px; opacity: 0.5;">
+                    Programėlės versija: 1.6
                 </div>
             </section>
 
@@ -855,7 +858,7 @@
         </div>
     </div>
 
-    <script src="app.js?v=1.5"></script>
+    <script src="app.js?v=1.6"></script>
 </body>
 
 </html>

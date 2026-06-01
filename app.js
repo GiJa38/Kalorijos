@@ -1904,6 +1904,7 @@ JSON schema:
   "fiber": 5
 }`;
 
+        let availableModelsText = "Nepavyko gauti (klaida kreipiantis į list endpoint)";
         let modelName = 'gemini-1.5-flash';
         try {
             const listUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
@@ -1911,6 +1912,7 @@ JSON schema:
             if (listRes.ok) {
                 const listData = await listRes.json();
                 if (listData && listData.models) {
+                    availableModelsText = listData.models.map(m => m.name.replace('models/', '')).join(', ');
                     let foundModel = listData.models.find(m => 
                         m.name.toLowerCase().includes('gemini-2.5-flash') && 
                         m.supportedMethods && m.supportedMethods.includes('generateContent')
@@ -1936,9 +1938,12 @@ JSON schema:
                         modelName = foundModel.name.replace('models/', '');
                     }
                 }
+            } else {
+                availableModelsText = `Klaida: HTTP ${listRes.status}`;
             }
         } catch (e) {
             console.error("Nepavyko automatiškai parinkti modelio:", e);
+            availableModelsText = `Išimtis: ${e.message}`;
         }
 
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
@@ -1997,7 +2002,7 @@ JSON schema:
 
         } catch (err) {
             console.error(err);
-            alert(`Klaida kreipiantis į AI arba apdorojant atsakymą.\n\nDetalės: ${err.message}\n\nPatikrinkite savo API raktą, regiono apribojimus ir interneto ryšį!`);
+            alert(`Klaida kreipiantis į AI arba apdorojant atsakymą.\n\nDetalės: ${err.message}\n\nPabandyta naudoti modelį: models/${modelName}\nPrieinami jūsų raktui modeliai: ${availableModelsText}\n\nPatikrinkite savo API raktą ir interneto ryšį!`);
             loader.classList.add('hidden');
         } finally {
             generateBtn.disabled = false;
