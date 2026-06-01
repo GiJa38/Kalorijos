@@ -19,7 +19,7 @@
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js?v=1.9').then((reg) => {
+                navigator.serviceWorker.register('sw.js?v=2.0').then((reg) => {
                     console.log('SW registruotas:', reg.scope);
                 }).catch((err) => {
                     console.log('SW klaida:', err);
@@ -39,7 +39,7 @@
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-    <link rel="stylesheet" href="style.css?v=1.9">
+    <link rel="stylesheet" href="style.css?v=2.0">
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 </head>
 
@@ -431,7 +431,7 @@
                         onclick="app.resetApp()">Ištrinti ir atstatyti programėlę</button>
                 </div>
                 <div style="text-align: center; font-size: 11px; color: var(--text-muted); margin-top: 20px; opacity: 0.5;">
-                    Programėlės versija: 1.9
+                    Programėlės versija: 2.0
                 </div>
             </section>
 
@@ -758,11 +758,16 @@
             <!-- Kai API raktas yra -->
             <div id="aiPhotoActiveWrapper" class="hidden">
                 <!-- Nuotraukos įkėlimo zona -->
-                <div id="aiPhotoUploadArea" class="text-center" style="border: 2px dashed var(--glass-border); padding: 30px 15px; border-radius: 12px; cursor: pointer; background: rgba(0,0,0,0.1); transition: all 0.3s;" onclick="document.getElementById('aiPhotoFileInput').click()">
-                    <span class="material-icons-round" style="font-size: 48px; color: #ff5e62;">add_a_photo</span>
-                    <p style="margin-top: 10px; font-size: 14px; color: var(--text-main);">Paspauskite arba įkelkite maisto nuotrauką</p>
-                    <p style="font-size: 11px; color: var(--text-muted); margin-top: 5px;">Palaikomi formatai: JPG, PNG, WEBP</p>
-                    <input type="file" id="aiPhotoFileInput" accept="image/*" style="display: none;" onchange="app.handlePhotoUpload(event)">
+                <div id="aiPhotoUploadArea" style="display: flex; flex-direction: column; gap: 12px; padding: 10px 0;">
+                    <button type="button" class="btn btn-primary" style="background: linear-gradient(135deg, #ff5e62, #ff9966); border: none; padding: 14px; font-size: 15px; display: flex; align-items: center; justify-content: center; gap: 8px; border-radius: 8px;" onclick="document.getElementById('aiPhotoFileInputCamera').click()">
+                        <span class="material-icons-round">photo_camera</span> Nufotografuoti maistą
+                    </button>
+                    <button type="button" class="btn btn-primary" style="background: rgba(255,255,255,0.08); border: 1px solid var(--glass-border); padding: 12px; font-size: 14px; display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--text-main); border-radius: 8px;" onclick="document.getElementById('aiPhotoFileInputGallery').click()">
+                        <span class="material-icons-round">image</span> Pasirinkti iš galerijos
+                    </button>
+                    
+                    <input type="file" id="aiPhotoFileInputCamera" accept="image/*" capture="environment" style="display: none;" onchange="app.handlePhotoUpload(event)">
+                    <input type="file" id="aiPhotoFileInputGallery" accept="image/*" style="display: none;" onchange="app.handlePhotoUpload(event)">
                 </div>
 
                 <!-- Nuotraukos peržiūra -->
@@ -949,7 +954,7 @@
         </div>
     </div>
 
-    <script src="app.js?v=1.9"></script>
+    <script src="app.js?v=2.0"></script>
 </body>
 
 </html>

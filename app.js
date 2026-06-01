@@ -2164,7 +2164,10 @@ JSON schema:
         document.getElementById('aiPhotoUploadArea').classList.remove('hidden');
         document.getElementById('aiPhotoAnalyzeBtn').classList.add('hidden');
         document.getElementById('aiPhotoResultCard').classList.add('hidden');
-        document.getElementById('aiPhotoFileInput').value = '';
+        const inputCam = document.getElementById('aiPhotoFileInputCamera');
+        const inputGal = document.getElementById('aiPhotoFileInputGallery');
+        if (inputCam) inputCam.value = '';
+        if (inputGal) inputGal.value = '';
         
         this.currentPhotoBase64 = null;
         this.currentPhotoMimeType = null;
