@@ -1913,27 +1913,45 @@ JSON schema:
                 const listData = await listRes.json();
                 if (listData && listData.models) {
                     availableModelsText = listData.models.map(m => m.name.replace('models/', '')).join(', ');
+                    
+                    const supportsGenerate = (m) => {
+                        const methods = m.supportedGenerationMethods || m.supportedMethods || [];
+                        return methods.includes('generateContent') || m.name.toLowerCase().includes('flash') || m.name.toLowerCase().includes('pro');
+                    };
+
+                    // Nuosekliai ieškome geriausio modelio (prioritetas naujesniems, pvz. gemini-3.5-flash, gemini-3.1-flash)
                     let foundModel = listData.models.find(m => 
-                        m.name.toLowerCase().includes('gemini-2.5-flash') && 
-                        m.supportedMethods && m.supportedMethods.includes('generateContent')
+                        m.name.toLowerCase().includes('gemini-3.5-flash') && supportsGenerate(m)
                     );
                     if (!foundModel) {
                         foundModel = listData.models.find(m => 
-                            m.name.toLowerCase().includes('gemini-1.5-flash') && 
-                            m.supportedMethods && m.supportedMethods.includes('generateContent')
+                            m.name.toLowerCase().includes('gemini-3.1-flash') && supportsGenerate(m)
                         );
                     }
                     if (!foundModel) {
                         foundModel = listData.models.find(m => 
-                            m.name.toLowerCase().includes('flash') && 
-                            m.supportedMethods && m.supportedMethods.includes('generateContent')
+                            m.name.toLowerCase().includes('gemini-2.5-flash') && supportsGenerate(m)
                         );
                     }
                     if (!foundModel) {
                         foundModel = listData.models.find(m => 
-                            m.supportedMethods && m.supportedMethods.includes('generateContent')
+                            m.name.toLowerCase().includes('gemini-2.0-flash') && supportsGenerate(m)
                         );
                     }
+                    if (!foundModel) {
+                        foundModel = listData.models.find(m => 
+                            m.name.toLowerCase().includes('gemini-1.5-flash') && supportsGenerate(m)
+                        );
+                    }
+                    if (!foundModel) {
+                        foundModel = listData.models.find(m => 
+                            m.name.toLowerCase().includes('flash') && supportsGenerate(m)
+                        );
+                    }
+                    if (!foundModel) {
+                        foundModel = listData.models.find(m => supportsGenerate(m));
+                    }
+
                     if (foundModel) {
                         modelName = foundModel.name.replace('models/', '');
                     }
