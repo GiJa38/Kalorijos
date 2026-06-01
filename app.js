@@ -2064,6 +2064,7 @@ JSON schema:
             document.getElementById('aiProteinVal').innerText = `${Math.round(parsed.protein || 0)}g`;
             document.getElementById('aiFatVal').innerText = `${Math.round(parsed.fat || 0)}g`;
             document.getElementById('aiCarbsVal').innerText = `${Math.round(parsed.carbs || 0)}g`;
+            document.getElementById('aiFiberVal').innerText = `${Math.round(parsed.fiber || 0)}g`;
             document.getElementById('aiGeneratedIngredients').innerHTML = parsed.ingredients;
 
             loader.classList.add('hidden');
