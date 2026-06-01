@@ -1904,7 +1904,44 @@ JSON schema:
   "fiber": 5
 }`;
 
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+        let modelName = 'gemini-1.5-flash';
+        try {
+            const listUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
+            const listRes = await fetch(listUrl);
+            if (listRes.ok) {
+                const listData = await listRes.json();
+                if (listData && listData.models) {
+                    let foundModel = listData.models.find(m => 
+                        m.name.toLowerCase().includes('gemini-2.5-flash') && 
+                        m.supportedMethods && m.supportedMethods.includes('generateContent')
+                    );
+                    if (!foundModel) {
+                        foundModel = listData.models.find(m => 
+                            m.name.toLowerCase().includes('gemini-1.5-flash') && 
+                            m.supportedMethods && m.supportedMethods.includes('generateContent')
+                        );
+                    }
+                    if (!foundModel) {
+                        foundModel = listData.models.find(m => 
+                            m.name.toLowerCase().includes('flash') && 
+                            m.supportedMethods && m.supportedMethods.includes('generateContent')
+                        );
+                    }
+                    if (!foundModel) {
+                        foundModel = listData.models.find(m => 
+                            m.supportedMethods && m.supportedMethods.includes('generateContent')
+                        );
+                    }
+                    if (foundModel) {
+                        modelName = foundModel.name.replace('models/', '');
+                    }
+                }
+            }
+        } catch (e) {
+            console.error("Nepavyko automatiškai parinkti modelio:", e);
+        }
+
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
 
         try {
             const response = await fetch(url, {
