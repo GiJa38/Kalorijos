@@ -19,7 +19,7 @@
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js?v=1.8').then((reg) => {
+                navigator.serviceWorker.register('sw.js?v=1.9').then((reg) => {
                     console.log('SW registruotas:', reg.scope);
                 }).catch((err) => {
                     console.log('SW klaida:', err);
@@ -39,7 +39,7 @@
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-    <link rel="stylesheet" href="style.css?v=1.8">
+    <link rel="stylesheet" href="style.css?v=1.9">
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 </head>
 
@@ -101,7 +101,7 @@
                 </div>
 
                 <!-- AI Meniu ir Patiekalo siūlymas -->
-                <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                <div style="display: flex; gap: 10px; margin-bottom: 10px;">
                     <button class="btn-primary"
                         style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; background: linear-gradient(135deg, #a371f7, #6e40c9); border: none; font-size: 14px; padding: 12px 5px;"
                         onclick="app.generateMealSuggestion()">
@@ -113,6 +113,14 @@
                         onclick="app.openMenuGeneratorModal()">
                         <span class="material-icons-round">restaurant</span>
                         Dienos meniu
+                    </button>
+                </div>
+                <div style="margin-bottom: 20px;">
+                    <button class="btn-primary w-100"
+                        style="display: flex; align-items: center; justify-content: center; gap: 8px; background: linear-gradient(135deg, #ff5e62, #ff9966); border: none; font-size: 14px; padding: 12px 10px;"
+                        onclick="app.openPhotoRecognitionModal()">
+                        <span class="material-icons-round">photo_camera</span>
+                        Atpažinti maistą iš nuotraukos
                     </button>
                 </div>
 
@@ -423,7 +431,7 @@
                         onclick="app.resetApp()">Ištrinti ir atstatyti programėlę</button>
                 </div>
                 <div style="text-align: center; font-size: 11px; color: var(--text-muted); margin-top: 20px; opacity: 0.5;">
-                    Programėlės versija: 1.8
+                    Programėlės versija: 1.9
                 </div>
             </section>
 
@@ -725,6 +733,88 @@
         </div>
     </div>
 
+    <!-- AI Photo Recognition Modal -->
+    <div id="aiPhotoRecognitionModal" class="modal">
+        <div class="modal-content glass" style="max-height: 90vh; overflow-y: auto;">
+            <div class="modal-header">
+                <h2 style="display: flex; align-items: center; gap: 8px; color: #ff5e62; font-size: 20px;">
+                    <span class="material-icons-round">photo_camera</span> AI Maisto Atpažinimas
+                </h2>
+                <button class="icon-btn" onclick="app.closeModal('aiPhotoRecognitionModal')"><span
+                        class="material-icons-round">close</span></button>
+            </div>
+
+            <!-- Kai nėra API rakto -->
+            <div id="aiPhotoNoKeyWrapper" class="text-center" style="padding: 20px 10px;">
+                <span class="material-icons-round" style="font-size: 48px; color: var(--text-muted); opacity: 0.5;">vpn_key_off</span>
+                <p style="margin-top: 15px; font-size: 14px; line-height: 1.5; color: var(--text-muted);">
+                    Norėdami naudotis maisto atpažinimu iš nuotraukų, įveskite nemokamą Gemini API raktą Profilio nustatymuose.
+                </p>
+                <a href="https://aistudio.google.com/" target="_blank" class="btn btn-primary mt-20" style="background: rgba(255,255,255,0.1); color: var(--text-main); font-size: 14px; padding: 10px 15px; border-radius: 8px;">
+                    Gauti nemokamą raktą ↗
+                </a>
+            </div>
+
+            <!-- Kai API raktas yra -->
+            <div id="aiPhotoActiveWrapper" class="hidden">
+                <!-- Nuotraukos įkėlimo zona -->
+                <div id="aiPhotoUploadArea" class="text-center" style="border: 2px dashed var(--glass-border); padding: 30px 15px; border-radius: 12px; cursor: pointer; background: rgba(0,0,0,0.1); transition: all 0.3s;" onclick="document.getElementById('aiPhotoFileInput').click()">
+                    <span class="material-icons-round" style="font-size: 48px; color: #ff5e62;">add_a_photo</span>
+                    <p style="margin-top: 10px; font-size: 14px; color: var(--text-main);">Paspauskite arba įkelkite maisto nuotrauką</p>
+                    <p style="font-size: 11px; color: var(--text-muted); margin-top: 5px;">Palaikomi formatai: JPG, PNG, WEBP</p>
+                    <input type="file" id="aiPhotoFileInput" accept="image/*" style="display: none;" onchange="app.handlePhotoUpload(event)">
+                </div>
+
+                <!-- Nuotraukos peržiūra -->
+                <div id="aiPhotoPreviewWrapper" class="hidden mt-20" style="text-align: center; position: relative; border-radius: 12px; overflow: hidden; max-height: 250px; background: #000; display: flex; align-items: center; justify-content: center;">
+                    <img id="aiPhotoPreviewImg" style="max-width: 100%; max-height: 250px; object-fit: contain;">
+                    <button class="icon-btn" style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.6); color: #fff; border-radius: 50%; width: 36px; height: 36px;" onclick="app.resetPhotoUpload(event)">
+                        <span class="material-icons-round">delete</span>
+                    </button>
+                </div>
+
+                <!-- Mygtukas analizuoti -->
+                <button type="button" id="aiPhotoAnalyzeBtn" class="btn btn-primary w-100 mt-20 hidden" style="background: linear-gradient(135deg, #ff5e62, #ff9966); border:none;" onclick="app.analyzeFoodPhoto()">
+                    <span class="material-icons-round">analytics</span> Analizuoti nuotrauką
+                </button>
+
+                <!-- Krovimosi rodinys -->
+                <div id="aiPhotoLoader" class="text-center mt-20 hidden" style="color:#ff5e62; font-size: 14px; padding: 20px 0;">
+                    <span class="material-icons-round" style="animation: spin 2s linear infinite; font-size: 32px;">sync</span><br>
+                    <span style="margin-top: 8px; display: inline-block;">AI analizuoja nuotraukoje esantį maistą...</span>
+                </div>
+
+                <!-- Rezultato kortelė -->
+                <div id="aiPhotoResultCard" class="glass-card mt-20 hidden" style="border-left: 4px solid #ff5e62; padding: 15px;">
+                    <!-- Pavadinimas (redaguojamas) -->
+                    <div class="form-group" style="margin-bottom: 12px;">
+                        <label style="font-size: 12px; color: var(--text-muted);">Patiekalas (redaguotina):</label>
+                        <input type="text" id="aiPhotoMealName" style="width:100%; padding: 8px; border-radius: var(--radius-sm); border: 1px solid var(--glass-border); background: rgba(0,0,0,0.2); color: var(--text-main); font-size: 14px; outline:none;">
+                    </div>
+
+                    <!-- Maistinės vertės (redaguojamos) -->
+                    <div style="display: flex; gap: 6px; margin-bottom: 12px; font-size: 12px; background: rgba(0,0,0,0.2); padding: 8px; border-radius: 6px; justify-content: space-around; flex-wrap: wrap;">
+                        <div style="text-align: center;">Kcal: <br><input type="number" id="aiPhotoKcalVal" style="width:45px; text-align: center; border:none; background:transparent; color: var(--primary); font-weight: bold; outline:none; border-bottom: 1px dashed var(--glass-border);"></div>
+                        <div style="text-align: center;">B (g): <br><input type="number" id="aiPhotoProteinVal" style="width:35px; text-align: center; border:none; background:transparent; color: var(--text-main); outline:none; border-bottom: 1px dashed var(--glass-border);"></div>
+                        <div style="text-align: center;">R (g): <br><input type="number" id="aiPhotoFatVal" style="width:35px; text-align: center; border:none; background:transparent; color: var(--text-main); outline:none; border-bottom: 1px dashed var(--glass-border);"></div>
+                        <div style="text-align: center;">A (g): <br><input type="number" id="aiPhotoCarbsVal" style="width:35px; text-align: center; border:none; background:transparent; color: var(--text-main); outline:none; border-bottom: 1px dashed var(--glass-border);"></div>
+                        <div style="text-align: center;">S (g): <br><input type="number" id="aiPhotoFiberVal" style="width:35px; text-align: center; border:none; background:transparent; color: var(--text-main); outline:none; border-bottom: 1px dashed var(--glass-border);"></div>
+                    </div>
+
+                    <!-- Ingredientai (redaguojami) -->
+                    <div class="form-group" style="margin-bottom: 12px;">
+                        <label style="font-size: 12px; color: var(--text-muted);">Apytikslės dalys ir gamyba:</label>
+                        <textarea id="aiPhotoIngredients" rows="3" style="width:100%; padding: 8px; border-radius: var(--radius-sm); border: 1px solid var(--glass-border); background: rgba(0,0,0,0.2); color: var(--text-main); font-size: 13px; outline:none; resize: vertical; line-height: 1.4;"></textarea>
+                    </div>
+
+                    <button type="button" class="btn btn-primary w-100 mt-20" style="background: var(--success); font-size: 14px; padding: 10px;" onclick="app.addPhotoMealToLog()">
+                        <span class="material-icons-round">check_circle</span> Įtraukti į suvestinę
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Menu Generator Modal -->
     <div id="menuGeneratorModal" class="modal">
         <div class="modal-content glass" style="max-height: 90vh; overflow-y: auto;">
@@ -859,7 +949,7 @@
         </div>
     </div>
 
-    <script src="app.js?v=1.8"></script>
+    <script src="app.js?v=1.9"></script>
 </body>
 
 </html>

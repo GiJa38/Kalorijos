@@ -2119,6 +2119,309 @@ JSON schema:
         alert(`Patiekalas "${consumed.name}" sėkmingai įtrauktas į suvestinę!`);
     },
 
+    // --- AI Maisto Atpažinimas iš Nuotraukos ---
+    currentPhotoBase64: null,
+    currentPhotoMimeType: null,
+
+    openPhotoRecognitionModal() {
+        const p = this.data.profile;
+        const hasApiKey = p.geminiApiKey && p.geminiApiKey.trim().length > 5;
+
+        if (!hasApiKey) {
+            document.getElementById('aiPhotoNoKeyWrapper').classList.remove('hidden');
+            document.getElementById('aiPhotoActiveWrapper').classList.add('hidden');
+        } else {
+            document.getElementById('aiPhotoNoKeyWrapper').classList.add('hidden');
+            document.getElementById('aiPhotoActiveWrapper').classList.remove('hidden');
+            this.resetPhotoUpload(null);
+        }
+        this.showModal('aiPhotoRecognitionModal');
+    },
+
+    handlePhotoUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            document.getElementById('aiPhotoPreviewImg').src = e.target.result;
+            document.getElementById('aiPhotoPreviewWrapper').classList.remove('hidden');
+            document.getElementById('aiPhotoUploadArea').classList.add('hidden');
+            document.getElementById('aiPhotoAnalyzeBtn').classList.remove('hidden');
+
+            this.currentPhotoBase64 = e.target.result.split(',')[1];
+            this.currentPhotoMimeType = file.type;
+        };
+        reader.readAsDataURL(file);
+    },
+
+    resetPhotoUpload(event) {
+        if (event) {
+            event.stopPropagation();
+            event.preventDefault();
+        }
+        document.getElementById('aiPhotoPreviewWrapper').classList.add('hidden');
+        document.getElementById('aiPhotoUploadArea').classList.remove('hidden');
+        document.getElementById('aiPhotoAnalyzeBtn').classList.add('hidden');
+        document.getElementById('aiPhotoResultCard').classList.add('hidden');
+        document.getElementById('aiPhotoFileInput').value = '';
+        
+        this.currentPhotoBase64 = null;
+        this.currentPhotoMimeType = null;
+    },
+
+    async analyzeFoodPhoto() {
+        const apiKey = this.data.profile.geminiApiKey;
+        if (!apiKey) return alert("Nerastas API raktas!");
+        if (!this.currentPhotoBase64) return alert("Pirmiausia pasirinkite nuotrauką!");
+
+        const loader = document.getElementById('aiPhotoLoader');
+        const resultCard = document.getElementById('aiPhotoResultCard');
+        const analyzeBtn = document.getElementById('aiPhotoAnalyzeBtn');
+        const previewWrapper = document.getElementById('aiPhotoPreviewWrapper');
+
+        loader.classList.remove('hidden');
+        resultCard.classList.add('hidden');
+        analyzeBtn.disabled = true;
+
+        const promptText = `Esate profesionalus mitybos asistentas. Išanalizuokite šią maisto nuotrauką.
+Identifikuokite patiekalą, įvertinkite jo apytikslį svorį bei sudedamąsias dalis.
+Apskaičiuokite maistinę vertę: kalorijas (kcal), baltymus (g), riebalus (g), angliavandenius (g) bei skaidulas (g).
+Atsakymą pateikite išskirtinai tik kaip JSON formatą. Nenaudokite markdown pakuotės (jokių \`\`\`json ar \`\`\`).
+
+JSON schema:
+{
+  "name": "Identifikuotas patiekalo pavadinimas",
+  "ingredients": "Apytikslis ingredientų sąrašas su gramais (pvz. '150g kepta lašiša, 100g virti ryžiai, 50g agurkas')",
+  "kcal": 450,
+  "protein": 35,
+  "fat": 15,
+  "carbs": 40,
+  "fiber": 4
+}`;
+
+        let availableModelsText = "Nepavyko gauti";
+        let modelName = this.data.profile.selectedAiModel || 'gemini-2.5-flash';
+
+        if (this.data.profile.selectedAiModel) {
+            availableModelsText = `Sukešuotas modelis iš nustatymų (${modelName})`;
+        } else {
+            try {
+                const listUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
+                const listRes = await fetch(listUrl);
+                if (listRes.ok) {
+                    const listData = await listRes.json();
+                    if (listData && listData.models) {
+                        availableModelsText = listData.models.map(m => m.name.replace('models/', '')).join(', ');
+                        
+                        const supportsGenerate = (m) => {
+                            const methods = m.supportedGenerationMethods || m.supportedMethods || [];
+                            return methods.includes('generateContent') || m.name.toLowerCase().includes('flash') || m.name.toLowerCase().includes('pro');
+                        };
+
+                        let foundModel = listData.models.find(m => 
+                            m.name.toLowerCase().includes('gemini-3.5-flash') && supportsGenerate(m)
+                        );
+                        if (!foundModel) {
+                            foundModel = listData.models.find(m => 
+                                m.name.toLowerCase().includes('gemini-3.1-flash') && supportsGenerate(m)
+                            );
+                        }
+                        if (!foundModel) {
+                            foundModel = listData.models.find(m => 
+                                m.name.toLowerCase().includes('gemini-2.5-flash') && supportsGenerate(m)
+                            );
+                        }
+                        if (!foundModel) {
+                            foundModel = listData.models.find(m => 
+                                m.name.toLowerCase().includes('gemini-2.0-flash') && supportsGenerate(m)
+                            );
+                        }
+                        if (!foundModel) {
+                            foundModel = listData.models.find(m => 
+                                m.name.toLowerCase().includes('gemini-1.5-flash') && supportsGenerate(m)
+                            );
+                        }
+                        if (!foundModel) {
+                            foundModel = listData.models.find(m => 
+                                m.name.toLowerCase().includes('flash') && supportsGenerate(m)
+                            );
+                        }
+                        if (!foundModel) {
+                            foundModel = listData.models.find(m => supportsGenerate(m));
+                        }
+
+                        if (foundModel) {
+                            modelName = foundModel.name.replace('models/', '');
+                            this.data.profile.selectedAiModel = modelName;
+                            this.saveData();
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error("Nepavyko parinkti modelio nuotraukos analizei:", e);
+            }
+        }
+
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+
+        try {
+            let response;
+            let attempts = 5;
+            let delayMs = 1000;
+            const loaderTextSpan = loader.querySelector('span:last-of-type') || loader.lastChild;
+
+            for (let i = 0; i < attempts; i++) {
+                try {
+                    response = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            contents: [{
+                                parts: [
+                                    {
+                                        text: promptText
+                                    },
+                                    {
+                                        inlineData: {
+                                            mimeType: this.currentPhotoMimeType,
+                                            data: this.currentPhotoBase64
+                                        }
+                                    }
+                                ]
+                            }],
+                            generationConfig: {
+                                responseMimeType: "application/json"
+                            }
+                        })
+                    });
+
+                    if (response.status === 503 || response.status === 429) {
+                       if (i < attempts - 1) {
+                           console.warn(`Gauta klaida ${response.status}. Bandome vėl po ${delayMs}ms...`);
+                           if (loaderTextSpan) {
+                               loaderTextSpan.innerHTML = `Serveris laikinai užimtas (klaida ${response.status}).<br>Bandoma vėl po ${Math.round(delayMs / 1000)}s...`;
+                           }
+                           await new Promise(resolve => setTimeout(resolve, delayMs));
+                           delayMs *= 2;
+                           continue;
+                       }
+                    }
+                    break;
+                } catch (fetchErr) {
+                    if (i === attempts - 1) throw fetchErr;
+                    console.warn(`Fetch klaida. Bandome vėl po ${delayMs}ms...`);
+                    if (loaderTextSpan) {
+                        loaderTextSpan.innerHTML = `Ryšio sutrikimas.<br>Bandoma vėl po ${Math.round(delayMs / 1000)}s...`;
+                    }
+                    await new Promise(resolve => setTimeout(resolve, delayMs));
+                    delayMs *= 2;
+                }
+            }
+
+            if (!response.ok) {
+                if (response.status === 404 || response.status === 400) {
+                    this.data.profile.selectedAiModel = '';
+                    this.saveData();
+                }
+                let errorMsg = `API returned status ${response.status}`;
+                try {
+                    const errData = await response.json();
+                    if (errData && errData.error && errData.error.message) {
+                        errorMsg += `: ${errData.error.message}`;
+                    }
+                } catch (_) {}
+                throw new Error(errorMsg);
+            }
+
+            const data = await response.json();
+            if (!data.candidates || data.candidates.length === 0 || !data.candidates[0].content || !data.candidates[0].content.parts || data.candidates[0].content.parts.length === 0) {
+                throw new Error("API response does not contain candidates content.");
+            }
+            const responseText = data.candidates[0].content.parts[0].text;
+            const parsed = JSON.parse(responseText);
+
+            if (!parsed.name || !parsed.kcal) {
+                throw new Error("JSON structure was invalid.");
+            }
+
+            document.getElementById('aiPhotoMealName').value = parsed.name;
+            document.getElementById('aiPhotoKcalVal').value = Math.round(parsed.kcal);
+            document.getElementById('aiPhotoProteinVal').value = Math.round(parsed.protein || 0);
+            document.getElementById('aiPhotoFatVal').value = Math.round(parsed.fat || 0);
+            document.getElementById('aiPhotoCarbsVal').value = Math.round(parsed.carbs || 0);
+            document.getElementById('aiPhotoFiberVal').value = Math.round(parsed.fiber || 0);
+            document.getElementById('aiPhotoIngredients').value = parsed.ingredients;
+
+            loader.classList.add('hidden');
+            resultCard.classList.remove('hidden');
+            analyzeBtn.classList.add('hidden');
+            previewWrapper.classList.add('hidden');
+
+        } catch (err) {
+            console.error(err);
+            alert(`Klaida analizuojant nuotrauką.\n\nDetalės: ${err.message}\n\nPatikrinkite interneto ryšį ir įkelto failo formatą.`);
+            loader.classList.add('hidden');
+        } finally {
+            analyzeBtn.disabled = false;
+            const loaderTextSpan = loader.querySelector('span:last-of-type') || loader.lastChild;
+            if (loaderTextSpan) {
+                loaderTextSpan.innerHTML = "AI analizuoja nuotraukoje esantį maistą...";
+            }
+        }
+    },
+
+    addPhotoMealToLog() {
+        const nameInput = document.getElementById('aiPhotoMealName');
+        const kcalInput = document.getElementById('aiPhotoKcalVal');
+        const proteinInput = document.getElementById('aiPhotoProteinVal');
+        const fatInput = document.getElementById('aiPhotoFatVal');
+        const carbsInput = document.getElementById('aiPhotoCarbsVal');
+        const fiberInput = document.getElementById('aiPhotoFiberVal');
+        const ingredientsInput = document.getElementById('aiPhotoIngredients');
+
+        const name = nameInput.value.trim() || "Nenustatytas patiekalas iš nuotraukos";
+        const kcal = parseFloat(kcalInput.value) || 0;
+        const protein = parseFloat(proteinInput.value) || 0;
+        const fat = parseFloat(fatInput.value) || 0;
+        const carbs = parseFloat(carbsInput.value) || 0;
+        const fiber = parseFloat(fiberInput.value) || 0;
+        const ingredients = ingredientsInput.value.trim() || "";
+
+        const cT = this.data.consumedToday;
+
+        const consumed = {
+            id: Date.now() + Math.floor(Math.random() * 100),
+            timestamp: new Date().toLocaleTimeString('lt-LT', { hour: '2-digit', minute: '2-digit' }),
+            name: `Foto: ${name}`,
+            weight: 1,
+            displayAmount: `1 porcija`,
+            type: 'meal',
+            kcal: kcal,
+            protein: protein,
+            fat: fat,
+            carbs: carbs,
+            fiber: fiber,
+            notes: ingredients
+        };
+
+        cT.items.push(consumed);
+        cT.totalKcal += consumed.kcal;
+        cT.totalProtein += consumed.protein;
+        cT.totalFat += consumed.fat;
+        cT.totalCarbs += consumed.carbs;
+        cT.totalFiber += consumed.fiber;
+
+        this.saveData();
+        this.updateSummaryUI();
+        this.renderTodayMeals();
+
+        this.closeModal('aiPhotoRecognitionModal');
+        alert(`Patiekalas "${consumed.name}" sėkmingai įtrauktas į suvestinę!`);
+    },
+
     setupOnlineSearch() {
         const btn = document.getElementById('onlineSearchBtn');
         const input = document.getElementById('onlineSearchInput');
