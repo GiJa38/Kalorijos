@@ -17,6 +17,7 @@ const app = {
             eatBackCalories: true,
             avoidDairyInEvening: false,
             geminiApiKey: '',
+            selectedAiModel: '',
             tdee: 0, // Total Daily Energy Expenditure (Poreikis)
             macros: { protein: 0, fat: 0, carbs: 0, fiber: 0 }
         },
@@ -299,7 +300,11 @@ const app = {
 
             const geminiApiKeyInput = document.getElementById('geminiApiKey');
             if (geminiApiKeyInput) {
-                this.data.profile.geminiApiKey = geminiApiKeyInput.value.trim();
+                const newKey = geminiApiKeyInput.value.trim();
+                if (this.data.profile.geminiApiKey !== newKey) {
+                    this.data.profile.geminiApiKey = newKey;
+                    this.data.profile.selectedAiModel = '';
+                }
             }
 
             this.calculateDailyNeeds();
@@ -1862,6 +1867,10 @@ const app = {
         const generateBtn = document.getElementById('aiGenerateBtn');
 
         loader.classList.remove('hidden');
+        const loaderTextSpan = loader.querySelector('span:last-of-type') || loader.lastChild;
+        if (loaderTextSpan) {
+            loaderTextSpan.innerHTML = "AI kuria receptą pagal jūsų kalorijas...";
+        }
         resultCard.classList.add('hidden');
         generateBtn.disabled = true;
 
@@ -1905,86 +1914,128 @@ JSON schema:
 }`;
 
         let availableModelsText = "Nepavyko gauti (klaida kreipiantis į list endpoint)";
-        let modelName = 'gemini-1.5-flash';
-        try {
-            const listUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
-            const listRes = await fetch(listUrl);
-            if (listRes.ok) {
-                const listData = await listRes.json();
-                if (listData && listData.models) {
-                    availableModelsText = listData.models.map(m => m.name.replace('models/', '')).join(', ');
-                    
-                    const supportsGenerate = (m) => {
-                        const methods = m.supportedGenerationMethods || m.supportedMethods || [];
-                        return methods.includes('generateContent') || m.name.toLowerCase().includes('flash') || m.name.toLowerCase().includes('pro');
-                    };
+        let modelName = this.data.profile.selectedAiModel || 'gemini-2.5-flash';
 
-                    // Nuosekliai ieškome geriausio modelio (prioritetas naujesniems, pvz. gemini-3.5-flash, gemini-3.1-flash)
-                    let foundModel = listData.models.find(m => 
-                        m.name.toLowerCase().includes('gemini-3.5-flash') && supportsGenerate(m)
-                    );
-                    if (!foundModel) {
-                        foundModel = listData.models.find(m => 
-                            m.name.toLowerCase().includes('gemini-3.1-flash') && supportsGenerate(m)
-                        );
-                    }
-                    if (!foundModel) {
-                        foundModel = listData.models.find(m => 
-                            m.name.toLowerCase().includes('gemini-2.5-flash') && supportsGenerate(m)
-                        );
-                    }
-                    if (!foundModel) {
-                        foundModel = listData.models.find(m => 
-                            m.name.toLowerCase().includes('gemini-2.0-flash') && supportsGenerate(m)
-                        );
-                    }
-                    if (!foundModel) {
-                        foundModel = listData.models.find(m => 
-                            m.name.toLowerCase().includes('gemini-1.5-flash') && supportsGenerate(m)
-                        );
-                    }
-                    if (!foundModel) {
-                        foundModel = listData.models.find(m => 
-                            m.name.toLowerCase().includes('flash') && supportsGenerate(m)
-                        );
-                    }
-                    if (!foundModel) {
-                        foundModel = listData.models.find(m => supportsGenerate(m));
-                    }
+        if (this.data.profile.selectedAiModel) {
+            availableModelsText = `Sukešuotas modelis iš nustatymų (${modelName})`;
+        } else {
+            try {
+                const listUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
+                const listRes = await fetch(listUrl);
+                if (listRes.ok) {
+                    const listData = await listRes.json();
+                    if (listData && listData.models) {
+                        availableModelsText = listData.models.map(m => m.name.replace('models/', '')).join(', ');
+                        
+                        const supportsGenerate = (m) => {
+                            const methods = m.supportedGenerationMethods || m.supportedMethods || [];
+                            return methods.includes('generateContent') || m.name.toLowerCase().includes('flash') || m.name.toLowerCase().includes('pro');
+                        };
 
-                    if (foundModel) {
-                        modelName = foundModel.name.replace('models/', '');
+                        // Nuosekliai ieškome geriausio modelio (prioritetas naujesniems, pvz. gemini-3.5-flash, gemini-3.1-flash)
+                        let foundModel = listData.models.find(m => 
+                            m.name.toLowerCase().includes('gemini-3.5-flash') && supportsGenerate(m)
+                        );
+                        if (!foundModel) {
+                            foundModel = listData.models.find(m => 
+                                m.name.toLowerCase().includes('gemini-3.1-flash') && supportsGenerate(m)
+                            );
+                        }
+                        if (!foundModel) {
+                            foundModel = listData.models.find(m => 
+                                m.name.toLowerCase().includes('gemini-2.5-flash') && supportsGenerate(m)
+                            );
+                        }
+                        if (!foundModel) {
+                            foundModel = listData.models.find(m => 
+                                m.name.toLowerCase().includes('gemini-2.0-flash') && supportsGenerate(m)
+                            );
+                        }
+                        if (!foundModel) {
+                            foundModel = listData.models.find(m => 
+                                m.name.toLowerCase().includes('gemini-1.5-flash') && supportsGenerate(m)
+                            );
+                        }
+                        if (!foundModel) {
+                            foundModel = listData.models.find(m => 
+                                m.name.toLowerCase().includes('flash') && supportsGenerate(m)
+                            );
+                        }
+                        if (!foundModel) {
+                            foundModel = listData.models.find(m => supportsGenerate(m));
+                        }
+
+                        if (foundModel) {
+                            modelName = foundModel.name.replace('models/', '');
+                            this.data.profile.selectedAiModel = modelName;
+                            this.saveData();
+                        }
                     }
+                } else {
+                    availableModelsText = `Klaida: HTTP ${listRes.status}`;
                 }
-            } else {
-                availableModelsText = `Klaida: HTTP ${listRes.status}`;
+            } catch (e) {
+                console.error("Nepavyko automatiškai parinkti modelio:", e);
+                availableModelsText = `Išimtis: ${e.message}`;
             }
-        } catch (e) {
-            console.error("Nepavyko automatiškai parinkti modelio:", e);
-            availableModelsText = `Išimtis: ${e.message}`;
         }
 
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
 
         try {
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    contents: [{
-                        parts: [{
-                            text: promptText
-                        }]
-                    }],
-                    generationConfig: {
-                        responseMimeType: "application/json"
+            let response;
+            let attempts = 5;
+            let delayMs = 1000;
+
+            for (let i = 0; i < attempts; i++) {
+                try {
+                    response = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            contents: [{
+                                parts: [{
+                                    text: promptText
+                                }]
+                            }],
+                            generationConfig: {
+                                responseMimeType: "application/json"
+                            }
+                        })
+                    });
+
+                    // Jeigu perkrova (503) arba viršytas limitas (429), laukiame ir bandome dar kartą
+                    if (response.status === 503 || response.status === 429) {
+                        if (i < attempts - 1) {
+                            console.warn(`Gauta klaida ${response.status}. Bandome vėl po ${delayMs}ms...`);
+                            if (loaderTextSpan) {
+                                loaderTextSpan.innerHTML = `Serveris laikinai užimtas (klaida ${response.status}).<br>Bandoma vėl po ${Math.round(delayMs / 1000)}s...`;
+                            }
+                            await new Promise(resolve => setTimeout(resolve, delayMs));
+                            delayMs *= 2;
+                            continue;
+                        }
                     }
-                })
-            });
+                    break;
+                } catch (fetchErr) {
+                    if (i === attempts - 1) throw fetchErr;
+                    console.warn(`Fetch klaida. Bandome vėl po ${delayMs}ms...`);
+                    if (loaderTextSpan) {
+                        loaderTextSpan.innerHTML = `Ryšio sutrikimas.<br>Bandoma vėl po ${Math.round(delayMs / 1000)}s...`;
+                    }
+                    await new Promise(resolve => setTimeout(resolve, delayMs));
+                    delayMs *= 2;
+                }
+            }
 
             if (!response.ok) {
+                if (response.status === 404 || response.status === 400) {
+                    // Galbūt modelis nebepalaikomas, išvalome sukešuotą reikšmę sekantiems kartams
+                    this.data.profile.selectedAiModel = '';
+                    this.saveData();
+                }
                 let errorMsg = `API returned status ${response.status}`;
                 try {
                     const errData = await response.json();
@@ -2024,6 +2075,9 @@ JSON schema:
             loader.classList.add('hidden');
         } finally {
             generateBtn.disabled = false;
+            if (loaderTextSpan) {
+                loaderTextSpan.innerHTML = "AI kuria receptą pagal jūsų kalorijas...";
+            }
         }
     },
 
