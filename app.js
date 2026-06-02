@@ -2425,6 +2425,106 @@ JSON schema:
         alert(`Patiekalas "${consumed.name}" sėkmingai įtrauktas į suvestinę!`);
     },
 
+    async recalculatePhotoMacros() {
+        const apiKey = this.data.profile.geminiApiKey;
+        if (!apiKey) return alert("Nerastas API raktas!");
+        
+        const ingredientsInput = document.getElementById('aiPhotoIngredients');
+        const ingredientsText = ingredientsInput.value.trim();
+        if (!ingredientsText) return alert("Ingredientų sąrašas tuščias!");
+
+        const btn = document.getElementById('aiPhotoRecalculateBtn');
+        const originalText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = `<span class="material-icons-round" style="animation: spin 2s linear infinite; font-size: 16px;">sync</span> Perskaičiuojama...`;
+
+        const promptText = `Esate profesionalus mitybos asistentas. Apskaičiuokite maistinę vertę (vienai porcijai) pagal šį ingredientų sąrašą:
+"${ingredientsText}"
+
+Apskaičiuokite kalorijas (kcal), baltymus (g), riebalus (g), angliavandenius (g) bei skaidulas (g).
+Atsakymą pateikite išskirtinai tik kaip JSON formatą. Nenaudokite markdown pakuotės (jokių \`\`\`json ar \`\`\`).
+
+JSON schema:
+{
+  "kcal": 350,
+  "protein": 25,
+  "fat": 10,
+  "carbs": 40,
+  "fiber": 5
+}`;
+
+        const modelName = this.data.profile.selectedAiModel || 'gemini-2.5-flash';
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+
+        try {
+            let response;
+            let attempts = 3;
+            let delayMs = 1000;
+
+            for (let i = 0; i < attempts; i++) {
+                try {
+                    response = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            contents: [{
+                                parts: [{
+                                    text: promptText
+                                }]
+                            }],
+                            generationConfig: {
+                                responseMimeType: "application/json"
+                            }
+                        })
+                    });
+
+                    if (response.status === 503 || response.status === 429) {
+                        if (i < attempts - 1) {
+                            await new Promise(resolve => setTimeout(resolve, delayMs));
+                            delayMs *= 2;
+                            continue;
+                        }
+                    }
+                    break;
+                } catch (fetchErr) {
+                    if (i === attempts - 1) throw fetchErr;
+                    await new Promise(resolve => setTimeout(resolve, delayMs));
+                    delayMs *= 2;
+                }
+            }
+
+            if (!response.ok) {
+                throw new Error(`API returned status ${response.status}`);
+            }
+
+            const data = await response.json();
+            if (!data.candidates || data.candidates.length === 0 || !data.candidates[0].content || !data.candidates[0].content.parts || data.candidates[0].content.parts.length === 0) {
+                throw new Error("API response does not contain candidates content.");
+            }
+            const responseText = data.candidates[0].content.parts[0].text;
+            const parsed = JSON.parse(responseText);
+
+            if (parsed.kcal === undefined) {
+                throw new Error("JSON structure was invalid.");
+            }
+
+            document.getElementById('aiPhotoKcalVal').value = Math.round(parsed.kcal);
+            document.getElementById('aiPhotoProteinVal').value = Math.round(parsed.protein || 0);
+            document.getElementById('aiPhotoFatVal').value = Math.round(parsed.fat || 0);
+            document.getElementById('aiPhotoCarbsVal').value = Math.round(parsed.carbs || 0);
+            document.getElementById('aiPhotoFiberVal').value = Math.round(parsed.fiber || 0);
+
+        } catch (err) {
+            console.error(err);
+            alert(`Nepavyko perskaičiuoti maistinių verčių.\n\nDetalės: ${err.message}`);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        }
+    },
+
     setupOnlineSearch() {
         const btn = document.getElementById('onlineSearchBtn');
         const input = document.getElementById('onlineSearchInput');
