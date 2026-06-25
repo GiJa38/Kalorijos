@@ -5,6 +5,7 @@
 const app = {
     chartInstance: null,
     historyTimeframe: 7, // Kiek dienų rodyti grafike
+    detectedModels: null,
     // Duomenų struktūra LocalStorage
     data: {
         profile: {
@@ -304,6 +305,7 @@ const app = {
                 if (this.data.profile.geminiApiKey !== newKey) {
                     this.data.profile.geminiApiKey = newKey;
                     this.data.profile.selectedAiModel = '';
+                    this.detectedModels = null;
                 }
             }
 
@@ -1846,6 +1848,124 @@ const app = {
         this.showModal('aiSuggestModal');
     },
 
+    async callGeminiAPI(promptText, inlineData = null, onStatusUpdate = null) {
+        const apiKey = this.data.profile.geminiApiKey;
+        if (!apiKey) throw new Error("Nerastas API raktas!");
+
+        if (!this.detectedModels || this.detectedModels.length === 0) {
+            try {
+                const listUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
+                const listRes = await fetch(listUrl);
+                if (listRes.ok) {
+                    const listData = await listRes.json();
+                    if (listData && listData.models) {
+                        const supportsGenerate = (m) => {
+                            const methods = m.supportedGenerationMethods || m.supportedMethods || [];
+                            return methods.includes('generateContent') || m.name.toLowerCase().includes('flash') || m.name.toLowerCase().includes('pro');
+                        };
+                        const order = ['gemini-3.5-flash', 'gemini-3.1-flash', 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+                        
+                        let available = listData.models
+                            .filter(supportsGenerate)
+                            .map(m => m.name.replace('models/', ''));
+                        
+                        available.sort((a, b) => {
+                            const idxA = order.findIndex(o => a.toLowerCase().includes(o));
+                            const idxB = order.findIndex(o => b.toLowerCase().includes(o));
+                            if (idxA === -1 && idxB === -1) return a.localeCompare(b);
+                            if (idxA === -1) return 1;
+                            if (idxB === -1) return -1;
+                            return idxA - idxB;
+                        });
+
+                        this.detectedModels = available;
+                    }
+                }
+            } catch (e) {
+                console.error("Nepavyko gauti modelių sąrašo:", e);
+            }
+        }
+
+        const models = (this.detectedModels && this.detectedModels.length > 0)
+            ? this.detectedModels
+            : ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+
+        let lastError = null;
+
+        for (const modelName of models) {
+            console.log(`Bandoma naudoti modelį: ${modelName}`);
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+            
+            let attempts = 3;
+            let delayMs = 1000;
+
+            for (let i = 0; i < attempts; i++) {
+                try {
+                    const parts = [{ text: promptText }];
+                    if (inlineData) {
+                        parts.push({ inlineData });
+                    }
+
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            contents: [{ parts }],
+                            generationConfig: {
+                                responseMimeType: "application/json"
+                            }
+                        })
+                    });
+
+                    if (response.status === 503 || response.status === 429) {
+                        if (i < attempts - 1) {
+                            const statusMsg = `Modelis ${modelName} užimtas (klaida ${response.status}).<br>Bandoma vėl po ${Math.round(delayMs / 1000)}s...`;
+                            if (onStatusUpdate) onStatusUpdate(statusMsg);
+                            console.warn(`Modelis ${modelName} grąžino ${response.status}. Bandome vėl po ${delayMs}ms...`);
+                            await new Promise(resolve => setTimeout(resolve, delayMs));
+                            delayMs *= 2;
+                            continue;
+                        }
+                    }
+
+                    if (!response.ok) {
+                        let errorMsg = `API status ${response.status}`;
+                        try {
+                            const errData = await response.json();
+                            if (errData && errData.error && errData.error.message) {
+                                errorMsg += `: ${errData.error.message}`;
+                            }
+                        } catch (_) {}
+                        throw new Error(errorMsg);
+                    }
+
+                    const data = await response.json();
+                    if (!data.candidates || data.candidates.length === 0 || !data.candidates[0].content || !data.candidates[0].content.parts || data.candidates[0].content.parts.length === 0) {
+                        throw new Error("API atsakyme nerasta turinio (candidates).");
+                    }
+
+                    if (this.data.profile.selectedAiModel !== modelName) {
+                        this.data.profile.selectedAiModel = modelName;
+                        this.saveData();
+                    }
+
+                    return data.candidates[0].content.parts[0].text;
+
+                } catch (err) {
+                    console.warn(`Klaida su modeliu ${modelName}:`, err.message);
+                    lastError = err;
+                    const statusMsg = `Modelis ${modelName} nepasiekiamas (klaida).<br>Perjungiamas kitas modelis...`;
+                    if (onStatusUpdate) onStatusUpdate(statusMsg);
+                    break;
+                }
+            }
+        }
+
+        throw lastError || new Error("Nepavyko susisiekti su jokiu Gemini modeliu.");
+    },
+
     async generateMealSuggestionWithAI() {
         const p = this.data.profile;
         const apiKey = p.geminiApiKey;
@@ -1913,148 +2033,14 @@ JSON schema:
   "fiber": 5
 }`;
 
-        let availableModelsText = "Nepavyko gauti (klaida kreipiantis į list endpoint)";
-        let modelName = this.data.profile.selectedAiModel || 'gemini-2.5-flash';
-
-        if (this.data.profile.selectedAiModel) {
-            availableModelsText = `Sukešuotas modelis iš nustatymų (${modelName})`;
-        } else {
-            try {
-                const listUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
-                const listRes = await fetch(listUrl);
-                if (listRes.ok) {
-                    const listData = await listRes.json();
-                    if (listData && listData.models) {
-                        availableModelsText = listData.models.map(m => m.name.replace('models/', '')).join(', ');
-                        
-                        const supportsGenerate = (m) => {
-                            const methods = m.supportedGenerationMethods || m.supportedMethods || [];
-                            return methods.includes('generateContent') || m.name.toLowerCase().includes('flash') || m.name.toLowerCase().includes('pro');
-                        };
-
-                        // Nuosekliai ieškome geriausio modelio (prioritetas naujesniems, pvz. gemini-3.5-flash, gemini-3.1-flash)
-                        let foundModel = listData.models.find(m => 
-                            m.name.toLowerCase().includes('gemini-3.5-flash') && supportsGenerate(m)
-                        );
-                        if (!foundModel) {
-                            foundModel = listData.models.find(m => 
-                                m.name.toLowerCase().includes('gemini-3.1-flash') && supportsGenerate(m)
-                            );
-                        }
-                        if (!foundModel) {
-                            foundModel = listData.models.find(m => 
-                                m.name.toLowerCase().includes('gemini-2.5-flash') && supportsGenerate(m)
-                            );
-                        }
-                        if (!foundModel) {
-                            foundModel = listData.models.find(m => 
-                                m.name.toLowerCase().includes('gemini-2.0-flash') && supportsGenerate(m)
-                            );
-                        }
-                        if (!foundModel) {
-                            foundModel = listData.models.find(m => 
-                                m.name.toLowerCase().includes('gemini-1.5-flash') && supportsGenerate(m)
-                            );
-                        }
-                        if (!foundModel) {
-                            foundModel = listData.models.find(m => 
-                                m.name.toLowerCase().includes('flash') && supportsGenerate(m)
-                            );
-                        }
-                        if (!foundModel) {
-                            foundModel = listData.models.find(m => supportsGenerate(m));
-                        }
-
-                        if (foundModel) {
-                            modelName = foundModel.name.replace('models/', '');
-                            this.data.profile.selectedAiModel = modelName;
-                            this.saveData();
-                        }
-                    }
-                } else {
-                    availableModelsText = `Klaida: HTTP ${listRes.status}`;
-                }
-            } catch (e) {
-                console.error("Nepavyko automatiškai parinkti modelio:", e);
-                availableModelsText = `Išimtis: ${e.message}`;
-            }
-        }
-
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
-
         try {
-            let response;
-            let attempts = 5;
-            let delayMs = 1000;
-
-            for (let i = 0; i < attempts; i++) {
-                try {
-                    response = await fetch(url, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            contents: [{
-                                parts: [{
-                                    text: promptText
-                                }]
-                            }],
-                            generationConfig: {
-                                responseMimeType: "application/json"
-                            }
-                        })
-                    });
-
-                    // Jeigu perkrova (503) arba viršytas limitas (429), laukiame ir bandome dar kartą
-                    if (response.status === 503 || response.status === 429) {
-                        if (i < attempts - 1) {
-                            console.warn(`Gauta klaida ${response.status}. Bandome vėl po ${delayMs}ms...`);
-                            if (loaderTextSpan) {
-                                loaderTextSpan.innerHTML = `Serveris laikinai užimtas (klaida ${response.status}).<br>Bandoma vėl po ${Math.round(delayMs / 1000)}s...`;
-                            }
-                            await new Promise(resolve => setTimeout(resolve, delayMs));
-                            delayMs *= 2;
-                            continue;
-                        }
-                    }
-                    break;
-                } catch (fetchErr) {
-                    if (i === attempts - 1) throw fetchErr;
-                    console.warn(`Fetch klaida. Bandome vėl po ${delayMs}ms...`);
-                    if (loaderTextSpan) {
-                        loaderTextSpan.innerHTML = `Ryšio sutrikimas.<br>Bandoma vėl po ${Math.round(delayMs / 1000)}s...`;
-                    }
-                    await new Promise(resolve => setTimeout(resolve, delayMs));
-                    delayMs *= 2;
-                }
-            }
-
-            if (!response.ok) {
-                if (response.status === 404 || response.status === 400) {
-                    // Galbūt modelis nebepalaikomas, išvalome sukešuotą reikšmę sekantiems kartams
-                    this.data.profile.selectedAiModel = '';
-                    this.saveData();
-                }
-                let errorMsg = `API returned status ${response.status}`;
-                try {
-                    const errData = await response.json();
-                    if (errData && errData.error && errData.error.message) {
-                        errorMsg += `: ${errData.error.message}`;
-                    }
-                } catch (_) {}
-                throw new Error(errorMsg);
-            }
-
-            const data = await response.json();
-            if (!data.candidates || data.candidates.length === 0 || !data.candidates[0].content || !data.candidates[0].content.parts || data.candidates[0].content.parts.length === 0) {
-                throw new Error("API response does not contain candidates content. Possibly flagged or blocked.");
-            }
-            const responseText = data.candidates[0].content.parts[0].text;
+            const responseText = await this.callGeminiAPI(promptText, null, (msg) => {
+                if (loaderTextSpan) loaderTextSpan.innerHTML = msg;
+            });
             const parsed = JSON.parse(responseText);
 
             if (!parsed.name || !parsed.kcal) {
-                throw new Error("JSON struct was invalid.");
+                throw new Error("JSON formatas neteisingas.");
             }
 
             this.lastAiGeneratedMeal = parsed;
@@ -2072,7 +2058,7 @@ JSON schema:
 
         } catch (err) {
             console.error(err);
-            alert(`Klaida kreipiantis į AI arba apdorojant atsakymą.\n\nDetalės: ${err.message}\n\nPabandyta naudoti modelį: models/${modelName}\nPrieinami jūsų raktui modeliai: ${availableModelsText}\n\nPatikrinkite savo API raktą ir interneto ryšį!`);
+            alert(`Klaida kreipiantis į AI arba apdorojant atsakymą.\n\nDetalės: ${err.message}\n\nPatikrinkite savo API raktą ir interneto ryšį!`);
             loader.classList.add('hidden');
         } finally {
             generateBtn.disabled = false;
@@ -2160,6 +2146,7 @@ JSON schema:
             event.stopPropagation();
             event.preventDefault();
         }
+        this.detectedModels = null;
         document.getElementById('aiPhotoPreviewWrapper').classList.add('hidden');
         document.getElementById('aiPhotoUploadArea').classList.remove('hidden');
         document.getElementById('aiPhotoAnalyzeBtn').classList.add('hidden');
@@ -2203,151 +2190,20 @@ JSON schema:
   "fiber": 4
 }`;
 
-        let availableModelsText = "Nepavyko gauti";
-        let modelName = this.data.profile.selectedAiModel || 'gemini-2.5-flash';
-
-        if (this.data.profile.selectedAiModel) {
-            availableModelsText = `Sukešuotas modelis iš nustatymų (${modelName})`;
-        } else {
-            try {
-                const listUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
-                const listRes = await fetch(listUrl);
-                if (listRes.ok) {
-                    const listData = await listRes.json();
-                    if (listData && listData.models) {
-                        availableModelsText = listData.models.map(m => m.name.replace('models/', '')).join(', ');
-                        
-                        const supportsGenerate = (m) => {
-                            const methods = m.supportedGenerationMethods || m.supportedMethods || [];
-                            return methods.includes('generateContent') || m.name.toLowerCase().includes('flash') || m.name.toLowerCase().includes('pro');
-                        };
-
-                        let foundModel = listData.models.find(m => 
-                            m.name.toLowerCase().includes('gemini-3.5-flash') && supportsGenerate(m)
-                        );
-                        if (!foundModel) {
-                            foundModel = listData.models.find(m => 
-                                m.name.toLowerCase().includes('gemini-3.1-flash') && supportsGenerate(m)
-                            );
-                        }
-                        if (!foundModel) {
-                            foundModel = listData.models.find(m => 
-                                m.name.toLowerCase().includes('gemini-2.5-flash') && supportsGenerate(m)
-                            );
-                        }
-                        if (!foundModel) {
-                            foundModel = listData.models.find(m => 
-                                m.name.toLowerCase().includes('gemini-2.0-flash') && supportsGenerate(m)
-                            );
-                        }
-                        if (!foundModel) {
-                            foundModel = listData.models.find(m => 
-                                m.name.toLowerCase().includes('gemini-1.5-flash') && supportsGenerate(m)
-                            );
-                        }
-                        if (!foundModel) {
-                            foundModel = listData.models.find(m => 
-                                m.name.toLowerCase().includes('flash') && supportsGenerate(m)
-                            );
-                        }
-                        if (!foundModel) {
-                            foundModel = listData.models.find(m => supportsGenerate(m));
-                        }
-
-                        if (foundModel) {
-                            modelName = foundModel.name.replace('models/', '');
-                            this.data.profile.selectedAiModel = modelName;
-                            this.saveData();
-                        }
-                    }
-                }
-            } catch (e) {
-                console.error("Nepavyko parinkti modelio nuotraukos analizei:", e);
-            }
-        }
-
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
-
         try {
-            let response;
-            let attempts = 5;
-            let delayMs = 1000;
             const loaderTextSpan = loader.querySelector('span:last-of-type') || loader.lastChild;
+            const inlineData = {
+                mimeType: this.currentPhotoMimeType,
+                data: this.currentPhotoBase64
+            };
 
-            for (let i = 0; i < attempts; i++) {
-                try {
-                    response = await fetch(url, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            contents: [{
-                                parts: [
-                                    {
-                                        text: promptText
-                                    },
-                                    {
-                                        inlineData: {
-                                            mimeType: this.currentPhotoMimeType,
-                                            data: this.currentPhotoBase64
-                                        }
-                                    }
-                                ]
-                            }],
-                            generationConfig: {
-                                responseMimeType: "application/json"
-                            }
-                        })
-                    });
-
-                    if (response.status === 503 || response.status === 429) {
-                       if (i < attempts - 1) {
-                           console.warn(`Gauta klaida ${response.status}. Bandome vėl po ${delayMs}ms...`);
-                           if (loaderTextSpan) {
-                               loaderTextSpan.innerHTML = `Serveris laikinai užimtas (klaida ${response.status}).<br>Bandoma vėl po ${Math.round(delayMs / 1000)}s...`;
-                           }
-                           await new Promise(resolve => setTimeout(resolve, delayMs));
-                           delayMs *= 2;
-                           continue;
-                       }
-                    }
-                    break;
-                } catch (fetchErr) {
-                    if (i === attempts - 1) throw fetchErr;
-                    console.warn(`Fetch klaida. Bandome vėl po ${delayMs}ms...`);
-                    if (loaderTextSpan) {
-                        loaderTextSpan.innerHTML = `Ryšio sutrikimas.<br>Bandoma vėl po ${Math.round(delayMs / 1000)}s...`;
-                    }
-                    await new Promise(resolve => setTimeout(resolve, delayMs));
-                    delayMs *= 2;
-                }
-            }
-
-            if (!response.ok) {
-                if (response.status === 404 || response.status === 400) {
-                    this.data.profile.selectedAiModel = '';
-                    this.saveData();
-                }
-                let errorMsg = `API returned status ${response.status}`;
-                try {
-                    const errData = await response.json();
-                    if (errData && errData.error && errData.error.message) {
-                        errorMsg += `: ${errData.error.message}`;
-                    }
-                } catch (_) {}
-                throw new Error(errorMsg);
-            }
-
-            const data = await response.json();
-            if (!data.candidates || data.candidates.length === 0 || !data.candidates[0].content || !data.candidates[0].content.parts || data.candidates[0].content.parts.length === 0) {
-                throw new Error("API response does not contain candidates content.");
-            }
-            const responseText = data.candidates[0].content.parts[0].text;
+            const responseText = await this.callGeminiAPI(promptText, inlineData, (msg) => {
+                if (loaderTextSpan) loaderTextSpan.innerHTML = msg;
+            });
             const parsed = JSON.parse(responseText);
 
             if (!parsed.name || !parsed.kcal) {
-                throw new Error("JSON structure was invalid.");
+                throw new Error("JSON formatas neteisingas.");
             }
 
             document.getElementById('aiPhotoMealName').value = parsed.name;
@@ -2453,61 +2309,12 @@ JSON schema:
   "fiber": 5
 }`;
 
-        const modelName = this.data.profile.selectedAiModel || 'gemini-2.5-flash';
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
-
         try {
-            let response;
-            let attempts = 3;
-            let delayMs = 1000;
-
-            for (let i = 0; i < attempts; i++) {
-                try {
-                    response = await fetch(url, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            contents: [{
-                                parts: [{
-                                    text: promptText
-                                }]
-                            }],
-                            generationConfig: {
-                                responseMimeType: "application/json"
-                            }
-                        })
-                    });
-
-                    if (response.status === 503 || response.status === 429) {
-                        if (i < attempts - 1) {
-                            await new Promise(resolve => setTimeout(resolve, delayMs));
-                            delayMs *= 2;
-                            continue;
-                        }
-                    }
-                    break;
-                } catch (fetchErr) {
-                    if (i === attempts - 1) throw fetchErr;
-                    await new Promise(resolve => setTimeout(resolve, delayMs));
-                    delayMs *= 2;
-                }
-            }
-
-            if (!response.ok) {
-                throw new Error(`API returned status ${response.status}`);
-            }
-
-            const data = await response.json();
-            if (!data.candidates || data.candidates.length === 0 || !data.candidates[0].content || !data.candidates[0].content.parts || data.candidates[0].content.parts.length === 0) {
-                throw new Error("API response does not contain candidates content.");
-            }
-            const responseText = data.candidates[0].content.parts[0].text;
+            const responseText = await this.callGeminiAPI(promptText);
             const parsed = JSON.parse(responseText);
 
             if (parsed.kcal === undefined) {
-                throw new Error("JSON structure was invalid.");
+                throw new Error("JSON formatas neteisingas.");
             }
 
             document.getElementById('aiPhotoKcalVal').value = Math.round(parsed.kcal);
