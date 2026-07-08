@@ -773,4 +773,18 @@ select:focus {
     color: #a371f7;
     font-weight: 500;
 }
+
+/* Collapsible Accordion Styles */
+.accordion-content {
+    max-height: 2000px;
+    transition: max-height 0.3s ease-in-out, opacity 0.2s ease-in-out;
+    opacity: 1;
+    overflow: hidden;
+}
+
+.accordion-content.collapsed {
+    max-height: 0;
+    opacity: 0;
+    margin-top: 0 !important;
+}
 

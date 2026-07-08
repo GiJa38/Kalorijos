@@ -403,8 +403,13 @@ const app = {
         // Išsaugome tiesiai iš vartotojo įvestas treniruočių kcal
         const burnedKcal = c.trainingKcal || 0;
 
-        document.getElementById('burnedKcal').innerText = Math.round(burnedKcal);
-        document.getElementById('todayTraining').value = burnedKcal === 0 ? '' : burnedKcal;
+        const burnedKcalEl = document.getElementById('burnedKcal');
+        if (burnedKcalEl) burnedKcalEl.innerText = Math.round(burnedKcal);
+
+        const trainingInput = document.getElementById('todayTraining');
+        if (trainingInput && document.activeElement !== trainingInput) {
+            trainingInput.value = burnedKcal === 0 ? '' : burnedKcal;
+        }
 
         // Dinaminė norma = bazinis tdee + ką sudegino - ką suvalgė 
         // ARBA tik bazinis tdee - ką suvalgė (jei vartotojas nenori pridėti sudegintų kalorijų)
@@ -475,23 +480,12 @@ const app = {
 
     updateTrainingKcal() {
         const input = document.getElementById('todayTraining');
+        if (!input) return;
         const cal = parseInt(input.value) || 0;
 
         this.data.consumedToday.trainingKcal = cal;
         this.saveData();
         this.updateSummaryUI();
-
-        const btn = document.querySelector('.steps-card .btn');
-        if (btn) {
-            const originalText = btn.innerText;
-            btn.innerText = 'Išsaugota! ✓';
-            btn.style.backgroundColor = 'var(--success)';
-
-            setTimeout(() => {
-                btn.innerText = originalText;
-                btn.style.backgroundColor = '';
-            }, 2000);
-        }
     },
 
     deleteFood(id) {
@@ -1110,9 +1104,12 @@ const app = {
 
     renderTodayMeals() {
         const list = document.getElementById('todayMealsList');
+        if (!list) return;
         list.innerHTML = '';
 
-        const items = this.data.consumedToday.items;
+        const items = this.data.consumedToday.items || [];
+        const countTag = document.getElementById('todayMealsCountTag');
+        if (countTag) countTag.innerText = items.length;
 
         if (items.length === 0) {
             list.innerHTML = '<li class="empty-state">Dar nieko nesuvalgėte.</li>';
@@ -2918,6 +2915,16 @@ JSON schema:
             if (mealsTab) mealsTab.classList.add('active');
             if (foodsPanel) foodsPanel.classList.add('hidden');
             if (mealsPanel) mealsPanel.classList.remove('hidden');
+        }
+    },
+
+    toggleTodayMealsAccordion() {
+        const content = document.getElementById('todayMealsAccordionContent');
+        const icon = document.getElementById('todayMealsAccordionIcon');
+        if (content) {
+            content.classList.toggle('collapsed');
+            const isCollapsed = content.classList.contains('collapsed');
+            icon.style.transform = isCollapsed ? 'rotate(180deg)' : 'rotate(0deg)';
         }
     }
 };

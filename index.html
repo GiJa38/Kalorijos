@@ -93,10 +93,14 @@
                         <strong id="caloriesConsumed" style="font-size: 20px; color: var(--primary);">0</strong>
                         <small>kcal</small>
                     </div>
-                    <div class="col">
-                        <div style="font-size: 12px; color: var(--text-muted)">Sudeginta (Treniruotė)</div>
-                        <strong id="caloriesBurnedTotal" style="font-size: 20px; color: var(--success);">0</strong>
-                        <small>kcal</small>
+                    <div class="col" style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                        <div style="font-size: 11px; color: var(--text-muted)">Sudeginta (Treniruotė)</div>
+                        <div style="display: flex; align-items: center; justify-content: center; gap: 4px; margin-top: 4px;">
+                            <span class="material-icons-round" style="color: var(--success); font-size: 16px;">fitness_center</span>
+                            <input type="number" id="todayTraining" placeholder="0" min="0" oninput="app.updateTrainingKcal()" 
+                                style="width: 65px; text-align: center; border: none; background: rgba(255,255,255,0.08); color: var(--success); font-size: 18px; font-weight: bold; padding: 4px; border-radius: var(--radius-sm); outline: none; margin: 0;">
+                            <span style="font-size: 12px; color: var(--text-muted)">kcal</span>
+                        </div>
                     </div>
                 </div>
 
@@ -143,33 +147,17 @@
                 </div>
 
                 <div class="recent-meals glass-card mt-20">
-                    <h3>Šiandien suvalgyta</h3>
-                    <ul id="todayMealsList" class="meal-list">
-                        <li class="empty-state">Dar nieko nesuvalgėte.</li>
-                    </ul>
-                </div>
-
-                <div class="steps-card glass-card mt-20">
-                    <div
-                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                        <h3 style="margin: 0;">Treniruotėje sudeginta</h3>
-                        <span class="material-icons-round"
-                            style="color:var(--primary); font-size: 28px;">fitness_center</span>
+                    <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none;" onclick="app.toggleTodayMealsAccordion()">
+                        <h3 style="margin: 0; display: flex; align-items: center; gap: 8px;">
+                            Šiandien suvalgyta
+                            <span id="todayMealsCountTag" style="font-size: 11px; background: rgba(255,255,255,0.1); color: var(--text-main); padding: 2px 8px; border-radius: 10px; font-weight: normal;">0</span>
+                        </h3>
+                        <span id="todayMealsAccordionIcon" class="material-icons-round" style="color: var(--text-muted); transition: transform 0.3s;">expand_less</span>
                     </div>
-                    <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 15px;">
-                        <div style="flex:1;">
-                            <input type="number" id="todayTraining" placeholder="Įveskite kcal" min="0"
-                                style="margin-bottom:0;">
-                        </div>
-                        <button class="btn btn-primary" onclick="app.updateTrainingKcal()"
-                            style="padding: 0 20px;">Išsaugoti</button>
-                    </div>
-                    <div
-                        style="font-size: 14px; text-align: center; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px;">
-                        Papildomai sudeginta: <strong id="burnedKcal"
-                            style="color: var(--success); font-size: 18px;">0</strong> kcal<br>
-                        <small style="color: var(--text-muted)">(Sudegintos kalorijos gali būti pridedamos prie dienos
-                            limito)</small>
+                    <div id="todayMealsAccordionContent" class="accordion-content" style="margin-top: 15px;">
+                        <ul id="todayMealsList" class="meal-list">
+                            <li class="empty-state">Dar nieko nesuvalgėte.</li>
+                        </ul>
                     </div>
                 </div>
             </section>
@@ -932,7 +920,7 @@
         </div>
     </div>
 
-    <script src="app.js?v=2.2"></script>
+    <script src="app.js?v=2.3"></script>
 </body>
 
 </html>
