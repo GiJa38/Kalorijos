@@ -683,4 +683,94 @@ select:focus {
     font-size: 12px !important;
     color: var(--text-muted) !important;
 }
+
+/* Floating Action Button (FAB) */
+.fab-btn {
+    position: fixed;
+    bottom: 95px; /* Above the bottom navigation bar (80px height + 15px gap) */
+    right: 20px;
+    width: 56px;
+    height: 56px;
+    border-radius: var(--radius-round);
+    background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+    color: #fff;
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 999;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.fab-btn:hover {
+    transform: translateY(-4px) scale(1.05);
+    box-shadow: 0 12px 24px rgba(88, 166, 255, 0.4);
+}
+
+.fab-btn .material-icons-round {
+    font-size: 28px;
+}
+
+/* Kitchen segmented tabs control */
+.kitchen-tabs-container {
+    display: flex;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
+    padding: 4px;
+    margin-bottom: 20px;
+}
+
+.kitchen-tab {
+    flex: 1;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    padding: 10px;
+    font-size: 14px;
+    font-weight: 500;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.kitchen-tab.active {
+    background: var(--glass-bg);
+    color: var(--primary);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow);
+}
+
+.kitchen-panel {
+    transition: opacity 0.3s ease;
+}
+
+/* AI Filter Chips / Tags */
+.ai-filter-tags {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 6px;
+}
+
+.ai-tag {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--glass-border);
+    color: var(--text-muted);
+    padding: 6px 12px;
+    font-size: 12px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.ai-tag.active {
+    background: rgba(163, 113, 247, 0.15);
+    border-color: #a371f7;
+    color: #a371f7;
+    font-weight: 500;
+}
 
