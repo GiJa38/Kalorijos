@@ -2919,7 +2919,6 @@ JSON schema:
             if (foodsPanel) foodsPanel.classList.add('hidden');
             if (mealsPanel) mealsPanel.classList.remove('hidden');
         }
-    },
     }
 };
 
