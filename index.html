@@ -147,14 +147,19 @@
                 </div>
 
                 <div class="recent-meals glass-card mt-20">
-                    <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none;" onclick="app.toggleTodayMealsAccordion()">
-                        <h3 style="margin: 0; display: flex; align-items: center; gap: 8px;">
-                            Šiandien suvalgyta
-                            <span id="todayMealsCountTag" style="font-size: 11px; background: rgba(255,255,255,0.1); color: var(--text-main); padding: 2px 8px; border-radius: 10px; font-weight: normal;">0</span>
-                        </h3>
-                        <span id="todayMealsAccordionIcon" class="material-icons-round" style="color: var(--text-muted); transition: transform 0.3s;">expand_less</span>
+                    <div style="display: flex; justify-content: space-between; align-items: center; user-select: none;">
+                        <div style="display: flex; align-items: center; gap: 8px; cursor: pointer;" onclick="app.toggleTodayMealsAccordion()">
+                            <h3 style="margin: 0; display: flex; align-items: center; gap: 8px;">
+                                Šiandien suvalgyta
+                                <span id="todayMealsCountTag" style="font-size: 11px; background: rgba(255,255,255,0.1); color: var(--text-main); padding: 2px 8px; border-radius: 10px; font-weight: normal;">0</span>
+                            </h3>
+                            <span id="todayMealsAccordionIcon" class="material-icons-round" style="color: var(--text-muted); transition: transform 0.3s; transform: rotate(180deg); font-size: 20px;">expand_less</span>
+                        </div>
+                        <button class="icon-btn" onclick="app.openQuickAddModal()" style="color: var(--primary); background: rgba(255,255,255,0.06); border: 1px solid var(--glass-border); border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s;" title="Greitas pridėjimas">
+                            <span class="material-icons-round" style="font-size: 16px;">add</span>
+                        </button>
                     </div>
-                    <div id="todayMealsAccordionContent" class="accordion-content" style="margin-top: 15px;">
+                    <div id="todayMealsAccordionContent" class="accordion-content collapsed" style="margin-top: 15px;">
                         <ul id="todayMealsList" class="meal-list">
                             <li class="empty-state">Dar nieko nesuvalgėte.</li>
                         </ul>
@@ -420,10 +425,6 @@
 
         </main>
 
-        <!-- Floating Action Button (FAB) for Quick Add -->
-        <button class="fab-btn" onclick="app.openQuickAddModal()" title="Greitas pridėjimas">
-            <span class="material-icons-round">add</span>
-        </button>
 
         <!-- Bottom Navigation -->
         <nav class="bottom-nav">
@@ -920,7 +921,7 @@
         </div>
     </div>
 
-    <script src="app.js?v=2.3"></script>
+    <script src="app.js?v=2.5"></script>
 </body>
 
 </html>
