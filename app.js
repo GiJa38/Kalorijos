@@ -2115,11 +2115,11 @@ JSON schema (grąžinkite masyvą):
             avoidedMealsPrompt = `\nGRIEŽTAI NENAUDOK šių patiekalų / pavadinimų (vartotojas juos neseniai gavo ir nori įvairovės): ${this.data.recentAiSuggestions.join(', ')}.`;
         }
 
-        const promptText = `Esate profesionalus mitybos asistentas. Sugeneruokite vieną skanų ir sveiką patiekalą, tinkantį mitybos tipui: "${mealTypeLt}".
+        const promptText = `Esate profesionalus mitybos asistentas. Sugeneruokite vieną skanų ir sveiką patiekalą, tinkantį mitybos tipui: "${mealTypeLt}", BŪTINAI panaudojant vartotojo nurodytus pageidavimus ar turimus ingredientus.
 Vartotojo tikslas ir dienos kalorijų biudžetas:
 - Šiam valgiui skirta kalorijų: ~${Math.round(targetVal)} kcal.
 - Vartotojo visai likusiai dienai liko: ${Math.round(remainingKcal)} kcal (Baltymai: ${Math.round(remainingP)}g, Riebalai: ${Math.round(remainingF)}g, Angliavandeniai: ${Math.round(remainingC)}g).
-- Papildomas vartotojo pageidavimas ar šaldytuvo turinys: "${userPrompt ? userPrompt : "nėra"}".${tagsPrompt}${avoidedMealsPrompt}
+- Papildomas vartotojo pageidavimas ar šaldytuvo turinys (PRIVALOMA panaudoti): "${userPrompt ? userPrompt : "nėra"}".${tagsPrompt}${avoidedMealsPrompt}
 ${restrictionPrompt}
 
 Reikalavimai:
@@ -2127,6 +2127,7 @@ Reikalavimai:
 2. Recepto ingredientai ir trumpas paruošimo būdas (2-3 žingsniai) turi būti pateikti lietuviškai, aiškiai su gramais (pvz. "150g vištienos krūtinėlė, 100g cukinija...").
 3. Apskaičiuokite maistinę vertę. Ji privalo būti labai tiksli. Kcal turi būti arti ~${Math.round(targetVal)} kcal.
 4. Atsakymą pateikite išskirtinai tik kaip JSON formatą. Nenaudokite markdown pakuotės (jokių \`\`\`json ar \`\`\`).
+5. GRIEŽTAI atsižvelkite į vartotojo nurodytus ingredientus ar pageidavimus: jeigu vartotojas įrašė kokius nors ingredientus (pvz., "kiaušiniai", "tunas"), patiekale būtinai PRIVALO būti panaudoti šie ingredientai. Jeigu nurodė dietą/stilių, patiekalas PRIVALO tai atitikti.`;
 
 JSON schema:
 {

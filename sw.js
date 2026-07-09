@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kalorijos-v2.5';
+const CACHE_NAME = 'kalorijos-v2.6';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
