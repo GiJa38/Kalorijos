@@ -1211,22 +1211,56 @@ const app = {
     },
 
     renderHistory() {
-        const wDisplay = document.getElementById('currentWeightDisplay');
-        if (wDisplay) wDisplay.innerText = this.data.profile.weight || 0;
+        // Apskaičiuojame ir atnaujiname svorio suvestinę
+        let startWeight = 0;
+        if (this.data.history && this.data.history.length > 0) {
+            const firstWithWeight = this.data.history.find(r => r.weight && r.weight > 0);
+            if (firstWithWeight) startWeight = firstWithWeight.weight;
+        }
+        if (!startWeight) startWeight = this.data.profile.weight || 0;
+        const currentWeight = this.data.profile.weight || 0;
+        const weightChange = currentWeight - startWeight;
+
+        const startWeightDisp = document.getElementById('startWeightDisplay');
+        const currWeightDisp = document.getElementById('currentWeightDisplay');
+        const weightChangeDisp = document.getElementById('weightChangeDisplay');
+
+        if (startWeightDisp) startWeightDisp.innerText = startWeight ? startWeight.toFixed(1) : '0';
+        if (currWeightDisp) currWeightDisp.innerText = currentWeight ? currentWeight.toFixed(1) : '0';
+        if (weightChangeDisp) {
+            weightChangeDisp.innerText = weightChange === 0 ? "0.0" : (weightChange > 0 ? "+" : "") + weightChange.toFixed(1);
+            if (weightChange === 0) {
+                weightChangeDisp.style.color = 'var(--text-muted)';
+            } else {
+                const userGoalToGain = (this.data.profile.goal || 0) > 0;
+                if ((weightChange < 0 && !userGoalToGain) || (weightChange > 0 && userGoalToGain)) {
+                    weightChangeDisp.style.color = 'var(--success)';
+                } else {
+                    weightChangeDisp.style.color = 'var(--danger)';
+                }
+            }
+        }
 
         // Išvalome vidurkį ir balansą jei nėra istorijos
         const d7Kcal = document.getElementById('avg7dKcal');
         const d7Training = document.getElementById('avg7dTraining');
         const weeklyBal = document.getElementById('weeklyBalance');
         const avgDaysText = document.getElementById('avgDaysText');
+        const balancePeriodText = document.getElementById('balancePeriodText');
+        const fatProjText = document.getElementById('fatProjectionText');
 
         if (d7Kcal) d7Kcal.innerText = '0';
         if (d7Training) d7Training.innerText = '0';
         if (avgDaysText) avgDaysText.innerText = this.historyTimeframe;
+        if (balancePeriodText) balancePeriodText.innerText = `${this.historyTimeframe} d.`;
 
         if (weeklyBal) {
             weeklyBal.innerText = '0';
             weeklyBal.style.color = 'var(--text-main)';
+        }
+        if (fatProjText) {
+            fatProjText.innerText = 'Nėra duomenų prognozei';
+            fatProjText.style.color = 'var(--text-muted)';
         }
 
         if (!this.data.history || this.data.history.length === 0) {
@@ -1278,8 +1312,20 @@ const app = {
                 weeklyBal.innerText = `+${roundedBal} kcal sutaupyta iš viso`;
                 weeklyBal.style.color = 'var(--success)';
             } else {
-                weeklyBal.innerText = `${roundedBal} kcal viršyta iš viso`;
+                weeklyBal.innerText = `${Math.abs(roundedBal)} kcal viršyta iš viso`;
                 weeklyBal.style.color = 'var(--danger)';
+            }
+        }
+
+        // Teorinis riebalų pokytis (7700 kcal = 1 kg riebalų)
+        if (fatProjText) {
+            const fatLossKg = periodBalanceKcal / 7700;
+            if (fatLossKg >= 0) {
+                fatProjText.innerText = `Teorinis riebalų pokytis: -${fatLossKg.toFixed(2)} kg`;
+                fatProjText.style.color = 'var(--success)';
+            } else {
+                fatProjText.innerText = `Teorinis riebalų pokytis: +${Math.abs(fatLossKg).toFixed(2)} kg`;
+                fatProjText.style.color = 'var(--danger)';
             }
         }
 
@@ -1778,8 +1824,8 @@ JSON schema (grąžinkite masyvą):
 
         // Apskaičiuojame svorio min ir max rėžius, kad ašis nebūtų nuo 0
         const validWeights = weightData.filter(w => w !== null && w > 0);
-        let minWeight = Math.min(...validWeights) - 2;
-        let maxWeight = Math.max(...validWeights) + 2;
+        let minWeight = Math.min(...validWeights) - 1.5;
+        let maxWeight = Math.max(...validWeights) + 1.5;
 
         // Jei kažkodėl nėra svorio duomenų arba jie lygūs begalybei
         if (!isFinite(minWeight) || !isFinite(maxWeight)) {
@@ -1791,7 +1837,15 @@ JSON schema (grąžinkite masyvą):
         const bgColors = consumedData.map((consumed, index) => {
             const target = targetData[index];
             const diff = target - consumed;
-            if (diff >= 0) return '#2ea043'; // Žalia
+            if (diff >= 0) return 'rgba(46, 160, 67, 0.35)'; // Permatoma Žalia
+            if (diff >= -150) return 'rgba(210, 153, 34, 0.35)'; // Permatoma Geltona
+            return 'rgba(248, 81, 73, 0.35)'; // Permatoma Raudona
+        });
+
+        const borderColors = consumedData.map((consumed, index) => {
+            const target = targetData[index];
+            const diff = target - consumed;
+            if (diff >= 0) return '#3fb950'; // Žalia
             if (diff >= -150) return '#d29922'; // Geltona
             return '#f85149'; // Raudona
         });
@@ -1808,18 +1862,22 @@ JSON schema (grąžinkite masyvą):
                         borderColor: '#a371f7',
                         backgroundColor: '#a371f7',
                         yAxisID: 'yWeight',
-                        tension: 0.3,
-                        pointRadius: 4,
-                        borderWidth: 2,
+                        tension: 0.4,
+                        pointRadius: 5,
+                        pointHoverRadius: 7,
+                        pointBackgroundColor: '#a371f7',
+                        pointBorderColor: '#ffffff',
+                        pointBorderWidth: 1.5,
+                        borderWidth: 3,
                         spanGaps: true // Sujungs kreivę per tas dienas, kai svoris neregistruotas
                     },
                     {
                         type: 'line',
                         label: 'Dienos Norma',
                         data: targetData,
-                        borderColor: 'rgba(255, 255, 255, 0.5)',
-                        borderWidth: 2,
-                        borderDash: [5, 5],
+                        borderColor: 'rgba(255, 255, 255, 0.35)',
+                        borderWidth: 1.5,
+                        borderDash: [6, 6],
                         yAxisID: 'yKcal',
                         pointRadius: 0,
                         fill: false
@@ -1829,7 +1887,9 @@ JSON schema (grąžinkite masyvą):
                         label: 'Suvartota Kcal',
                         data: consumedData,
                         backgroundColor: bgColors,
-                        borderRadius: 4,
+                        borderColor: borderColors,
+                        borderWidth: 1.5,
+                        borderRadius: 6,
                         yAxisID: 'yKcal'
                     }
                 ]
@@ -1843,24 +1903,27 @@ JSON schema (grąžinkite masyvą):
                 },
                 plugins: {
                     legend: {
+                        position: 'top',
                         labels: {
                             color: '#8b949e',
-                            font: { size: 10 }
+                            font: { size: 10, family: "'Outfit', sans-serif" },
+                            boxWidth: 12,
+                            padding: 10
                         }
                     }
                 },
                 scales: {
                     x: {
-                        ticks: { color: '#8b949e', font: { size: 10 } },
-                        grid: { color: 'rgba(255,255,255,0.05)' }
+                        ticks: { color: '#8b949e', font: { size: 10, family: "'Outfit', sans-serif" } },
+                        grid: { color: 'rgba(255,255,255,0.03)' }
                     },
                     yKcal: {
                         type: 'linear',
                         display: true,
                         position: 'left',
-                        ticks: { color: '#8b949e', font: { size: 10 } },
-                        grid: { color: 'rgba(255,255,255,0.05)' },
-                        title: { display: true, text: 'Kcal', color: '#8b949e', font: { size: 10 } }
+                        ticks: { color: '#8b949e', font: { size: 10, family: "'Outfit', sans-serif" } },
+                        grid: { color: 'rgba(255,255,255,0.03)' },
+                        title: { display: true, text: 'Kcal', color: '#8b949e', font: { size: 10, family: "'Outfit', sans-serif" } }
                     },
                     yWeight: {
                         type: 'linear',
@@ -1868,9 +1931,9 @@ JSON schema (grąžinkite masyvą):
                         position: 'right',
                         min: minWeight,
                         max: maxWeight,
-                        ticks: { color: '#a371f7', font: { size: 10 }, stepSize: 1 },
+                        ticks: { color: '#a371f7', font: { size: 10, family: "'Outfit', sans-serif" }, stepSize: 0.5 },
                         grid: { drawOnChartArea: false },
-                        title: { display: true, text: 'Svoris (kg)', color: '#a371f7', font: { size: 10 } }
+                        title: { display: true, text: 'Svoris (kg)', color: '#a371f7', font: { size: 10, family: "'Outfit', sans-serif" } }
                     }
                 }
             }
@@ -2009,7 +2072,8 @@ JSON schema (grąžinkite masyvą):
                         body: JSON.stringify({
                             contents: [{ parts }],
                             generationConfig: {
-                                responseMimeType: "application/json"
+                                responseMimeType: "application/json",
+                                temperature: 0
                             }
                         })
                     });
@@ -2250,6 +2314,8 @@ JSON schema:
             document.getElementById('aiPhotoPreviewWrapper').classList.remove('hidden');
             document.getElementById('aiPhotoUploadArea').classList.add('hidden');
             document.getElementById('aiPhotoAnalyzeBtn').classList.remove('hidden');
+            const hintArea = document.getElementById('aiPhotoHintArea');
+            if (hintArea) hintArea.classList.remove('hidden');
 
             this.currentPhotoBase64 = e.target.result.split(',')[1];
             this.currentPhotoMimeType = file.type;
@@ -2267,6 +2333,11 @@ JSON schema:
         document.getElementById('aiPhotoUploadArea').classList.remove('hidden');
         document.getElementById('aiPhotoAnalyzeBtn').classList.add('hidden');
         document.getElementById('aiPhotoResultCard').classList.add('hidden');
+        const hintArea = document.getElementById('aiPhotoHintArea');
+        if (hintArea) hintArea.classList.add('hidden');
+        const hintInput = document.getElementById('aiPhotoHintInput');
+        if (hintInput) hintInput.value = '';
+        
         const inputCam = document.getElementById('aiPhotoFileInputCamera');
         const inputGal = document.getElementById('aiPhotoFileInputGallery');
         if (inputCam) inputCam.value = '';
@@ -2290,10 +2361,18 @@ JSON schema:
         resultCard.classList.add('hidden');
         analyzeBtn.disabled = true;
 
-        const promptText = `Esate profesionalus mitybos asistentas. Išanalizuokite šią maisto nuotrauką.
+        const hintInput = document.getElementById('aiPhotoHintInput');
+        const hint = hintInput ? hintInput.value.trim() : '';
+
+        let promptText = `Esate profesionalus mitybos asistentas. Išanalizuokite šią maisto nuotrauką.
 Identifikuokite patiekalą, įvertinkite jo apytikslį svorį bei sudedamąsias dalis.
-Apskaičiuokite maistinę vertę: kalorijas (kcal), baltymus (g), riebalus (g), angliavandenius (g) bei skaidulas (g).
-Atsakymą pateikite išskirtinai tik kaip JSON formatą. Nenaudokite markdown pakuotės (jokių \`\`\`json ar \`\`\`).
+Apskaičiuokite maistinę vertę: kalorijas (kcal), baltymus (g), riebalus (g), angliavandenius (g) bei skaidulas (g).`;
+
+        if (hint) {
+            promptText += `\nPapildomi vartotojo patikslinimai/kontekstas (būtina tiksliai atsižvelgti į nurodytus svorius ar sudedamąsias dalis): "${hint}".`;
+        }
+
+        promptText += `\nAtsakymą pateikite išskirtinai tik kaip JSON formatą. Nenaudokite markdown pakuotės (jokių \`\`\`json ar \`\`\`).
 
 JSON schema:
 {

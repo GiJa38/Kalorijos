@@ -226,40 +226,59 @@
             <section id="view-history" class="view-section hidden">
                 <h2 class="section-title">Istorija ir Progresas</h2>
 
-                <div class="glass-card mt-10" style="margin-bottom: 20px;">
-                    <div
-                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                        <h3 style="font-size: 16px; margin: 0;">Fiksuoti šiandienos svorį</h3>
-                        <span class="material-icons-round" style="color:var(--primary);">scale</span>
+                <!-- Naujas Svorio Progreso Skydelis -->
+                <div class="glass-card mt-10" style="margin-bottom: 15px; padding: 15px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h3 style="font-size: 14px; margin: 0; color: var(--text-muted); font-weight: 500;">Svorio pokyčių suvestinė</h3>
+                        <span class="material-icons-round" style="color:#a371f7; font-size: 18px;">query_stats</span>
                     </div>
-                    <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 15px;">
-                        Išsaugotas dabartinis svoris: <strong id="currentWeightDisplay"
-                            style="color: var(--text-main); font-size: 14px;">0</strong> kg
+                    <div class="row text-center" style="gap: 10px; display: flex;">
+                        <div class="col" style="background: rgba(255,255,255,0.02); padding: 10px 8px; border-radius: var(--radius-sm); border: 1px solid var(--glass-border); flex: 1;">
+                            <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 4px;">Pradinis</div>
+                            <strong id="startWeightDisplay" style="font-size: 16px; color: var(--text-main);">0</strong> <span style="font-size: 11px; color: var(--text-muted)">kg</span>
+                        </div>
+                        <div class="col" style="background: rgba(255,255,255,0.02); padding: 10px 8px; border-radius: var(--radius-sm); border: 1px solid var(--glass-border); flex: 1;">
+                            <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 4px;">Dabartinis</div>
+                            <strong id="currentWeightDisplay" style="font-size: 16px; color: var(--primary);">0</strong> <span style="font-size: 11px; color: var(--text-muted)">kg</span>
+                        </div>
+                        <div class="col" style="background: rgba(255,255,255,0.02); padding: 10px 8px; border-radius: var(--radius-sm); border: 1px solid var(--glass-border); flex: 1;">
+                            <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 4px;">Pokytis</div>
+                            <strong id="weightChangeDisplay" style="font-size: 16px; color: var(--success);">0</strong> <span id="weightChangeUnit" style="font-size: 11px; color: var(--text-muted)">kg</span>
+                        </div>
                     </div>
-                    <div style="display: flex; gap: 10px; align-items: center;">
+                </div>
+
+                <!-- Svorio fiksavimas -->
+                <div class="glass-card mt-10" style="margin-bottom: 15px; padding: 15px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <h3 style="font-size: 14px; margin: 0; font-weight: 500;">Fiksuoti šiandienos svorį</h3>
+                        <span class="material-icons-round" style="color:var(--primary); font-size: 18px;">scale</span>
+                    </div>
+                    <div style="display: flex; gap: 8px; align-items: center;">
                         <input type="text" inputmode="decimal" id="historyWeightInput" placeholder="pvz. 75.5" min="30"
-                            step="0.1" style="flex: 1; margin: 0;">
-                        <span style="color: var(--text-muted); font-size: 14px;">kg</span>
+                            step="0.1" style="flex: 1; margin: 0; padding: 10px; font-size: 14px; border-radius: 8px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.2); color: #fff; outline: none;">
+                        <span style="color: var(--text-muted); font-size: 13px;">kg</span>
                         <button class="btn btn-primary" onclick="app.saveWeightHistory()"
-                            style="padding: 10px 15px;">Išsaugoti</button>
+                            style="padding: 10px 14px; font-size: 13px;">Išsaugoti</button>
                     </div>
                     <div id="weightDiffMessage"
-                        style="margin-top: 10px; font-size: 14px; text-align: center; display: none; padding: 10px; border-radius: 8px; background: rgba(0,0,0,0.2);">
+                        style="margin-top: 8px; font-size: 13px; text-align: center; display: none; padding: 8px; border-radius: var(--radius-sm); background: rgba(0,0,0,0.2);">
                     </div>
                 </div>
 
                 <!-- Savaitės Balansas -->
-                <div class="glass-card mt-20 text-center" style="margin-bottom: 20px;">
-                    <div
-                        style="display: flex; justify-content: center; align-items: center; gap: 8px; margin-bottom: 5px;">
-                        <span class="material-icons-round"
-                            style="color:var(--primary); font-size: 20px;">date_range</span>
-                        <h3 style="font-size: 16px; margin: 0;">Šios savaitės balansas</h3>
+                <div class="glass-card mt-15 text-center" style="margin-bottom: 15px; padding: 15px;">
+                    <div style="display: flex; justify-content: center; align-items: center; gap: 6px; margin-bottom: 6px;">
+                        <span class="material-icons-round" style="color:var(--primary); font-size: 18px;">date_range</span>
+                        <h3 style="font-size: 14px; margin: 0; font-weight: 500; color: var(--text-muted);"><span id="balancePeriodText">Šios savaitės</span> balansas</h3>
                     </div>
-                    <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 15px;">Visi sudegintų ir
-                        suvartotų kalorijų skirtumai bendrai sudėjus.</div>
-
-                    <strong id="weeklyBalance" style="font-size: 32px; font-weight: 700;">0</strong>
+                    <strong id="weeklyBalance" style="font-size: 24px; font-weight: 700; display: block; margin-bottom: 8px;">0</strong>
+                    
+                    <!-- Riebalų prognozės skiltis -->
+                    <div id="fatProjectionArea" style="display: inline-flex; align-items: center; gap: 6px; background: rgba(255, 255, 255, 0.04); padding: 5px 12px; border-radius: 20px; font-size: 12px; border: 1px solid var(--glass-border);">
+                        <span class="material-icons-round" style="font-size: 15px; color: #ff9966;">local_fire_department</span>
+                        <span id="fatProjectionText" style="color: var(--text-main);">Teorinis riebalų pokytis: 0.00 kg</span>
+                    </div>
                 </div>
 
                 <!-- Grafikas -->
@@ -770,6 +789,12 @@
                     <button class="icon-btn" style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.6); color: #fff; border-radius: 50%; width: 36px; height: 36px;" onclick="app.resetPhotoUpload(event)">
                         <span class="material-icons-round">delete</span>
                     </button>
+                </div>
+
+                <!-- Patikslinimas -->
+                <div id="aiPhotoHintArea" class="form-group hidden mt-20">
+                    <label style="font-size: 13px; color: var(--text-muted); display: block; margin-bottom: 6px;">Papildomi patikslinimai AI (svoris, aliejus, gamyba):</label>
+                    <input type="text" id="aiPhotoHintInput" placeholder="Pvz. virti ryžiai, 200g vištienos krūtinėlė, 1 a.š. aliejaus..." style="width:100%; padding: 10px; border-radius: var(--radius-sm); border: 1px solid var(--glass-border); background: rgba(0,0,0,0.2); color: var(--text-main); font-size: 14px; outline:none;">
                 </div>
 
                 <!-- Mygtukas analizuoti -->
