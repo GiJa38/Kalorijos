@@ -226,13 +226,18 @@
             <section id="view-history" class="view-section hidden">
                 <h2 class="section-title">Istorija ir Progresas</h2>
 
-                <!-- Naujas Svorio Progreso Skydelis -->
+                <!-- Naujas Svorio ir Kalorijų Progreso Skydelis -->
                 <div class="glass-card mt-10" style="margin-bottom: 15px; padding: 15px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                        <h3 style="font-size: 14px; margin: 0; color: var(--text-muted); font-weight: 500;">Svorio pokyčių suvestinė</h3>
+                        <h3 style="font-size: 14px; margin: 0; color: var(--text-muted); font-weight: 500;">Laikotarpio progreso suvestinė</h3>
                         <span class="material-icons-round" style="color:#a371f7; font-size: 18px;">query_stats</span>
                     </div>
-                    <div class="row text-center" style="gap: 10px; display: flex;">
+                    
+                    <!-- 1. Svoris -->
+                    <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px; font-weight: 500; text-align: left; display: flex; align-items: center; gap: 4px;">
+                        <span class="material-icons-round" style="font-size: 14px;">scale</span> Svoris
+                    </div>
+                    <div class="row text-center" style="gap: 10px; display: flex; margin-bottom: 15px;">
                         <div class="col" style="background: rgba(255,255,255,0.02); padding: 10px 8px; border-radius: var(--radius-sm); border: 1px solid var(--glass-border); flex: 1;">
                             <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 4px;">Pradinis</div>
                             <strong id="startWeightDisplay" style="font-size: 16px; color: var(--text-main);">0</strong> <span style="font-size: 11px; color: var(--text-muted)">kg</span>
@@ -246,38 +251,19 @@
                             <strong id="weightChangeDisplay" style="font-size: 16px; color: var(--success);">0</strong> <span id="weightChangeUnit" style="font-size: 11px; color: var(--text-muted)">kg</span>
                         </div>
                     </div>
-                </div>
 
-                <!-- Svorio fiksavimas -->
-                <div class="glass-card mt-10" style="margin-bottom: 15px; padding: 15px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                        <h3 style="font-size: 14px; margin: 0; font-weight: 500;">Fiksuoti šiandienos svorį</h3>
-                        <span class="material-icons-round" style="color:var(--primary); font-size: 18px;">scale</span>
-                    </div>
-                    <div style="display: flex; gap: 8px; align-items: center;">
-                        <input type="text" inputmode="decimal" id="historyWeightInput" placeholder="pvz. 75.5" min="30"
-                            step="0.1" style="flex: 1; margin: 0; padding: 10px; font-size: 14px; border-radius: 8px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.2); color: #fff; outline: none;">
-                        <span style="color: var(--text-muted); font-size: 13px;">kg</span>
-                        <button class="btn btn-primary" onclick="app.saveWeightHistory()"
-                            style="padding: 10px 14px; font-size: 13px;">Išsaugoti</button>
-                    </div>
-                    <div id="weightDiffMessage"
-                        style="margin-top: 8px; font-size: 13px; text-align: center; display: none; padding: 8px; border-radius: var(--radius-sm); background: rgba(0,0,0,0.2);">
-                    </div>
-                </div>
+                    <!-- Skiriamoji linija -->
+                    <hr style="border: none; border-top: 1px solid var(--glass-border); margin: 12px 0 10px 0;">
 
-                <!-- Savaitės Balansas -->
-                <div class="glass-card mt-15 text-center" style="margin-bottom: 15px; padding: 15px;">
-                    <div style="display: flex; justify-content: center; align-items: center; gap: 6px; margin-bottom: 6px;">
-                        <span class="material-icons-round" style="color:var(--primary); font-size: 18px;">date_range</span>
-                        <h3 style="font-size: 14px; margin: 0; font-weight: 500; color: var(--text-muted);"><span id="balancePeriodText">Šios savaitės</span> balansas</h3>
+                    <!-- 2. Kalorijos ir riebalai -->
+                    <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px; font-weight: 500; text-align: left; display: flex; align-items: center; gap: 4px;">
+                        <span class="material-icons-round" style="font-size: 14px;">local_fire_department</span> Kalorijų balansas (<span id="balancePeriodText">7 d.</span>)
                     </div>
-                    <strong id="weeklyBalance" style="font-size: 24px; font-weight: 700; display: block; margin-bottom: 8px;">0</strong>
-                    
-                    <!-- Riebalų prognozės skiltis -->
-                    <div id="fatProjectionArea" style="display: inline-flex; align-items: center; gap: 6px; background: rgba(255, 255, 255, 0.04); padding: 5px 12px; border-radius: 20px; font-size: 12px; border: 1px solid var(--glass-border);">
-                        <span class="material-icons-round" style="font-size: 15px; color: #ff9966;">local_fire_department</span>
-                        <span id="fatProjectionText" style="color: var(--text-main);">Teorinis riebalų pokytis: 0.00 kg</span>
+                    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(255,255,255,0.02); border: 1px solid var(--glass-border); border-radius: var(--radius-sm); padding: 12px;">
+                        <strong id="weeklyBalance" style="font-size: 20px; font-weight: 700; margin-bottom: 6px; color: var(--success);">0</strong>
+                        <div id="fatProjectionArea" style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px;">
+                            <span id="fatProjectionText" style="color: var(--text-main); font-weight: 500;">Teorinis riebalų pokytis: 0.00 kg</span>
+                        </div>
                     </div>
                 </div>
 
@@ -313,6 +299,24 @@
                             <strong id="avg7dTraining" style="font-size: 24px; color: var(--success);">0</strong>
                             <div style="font-size: 12px; color: var(--text-muted);">Treniruočių Kcal / dieną</div>
                         </div>
+                    </div>
+                </div>
+
+                <!-- Svorio fiksavimas (perkeltas čia) -->
+                <div class="glass-card mt-20" style="margin-bottom: 20px; padding: 15px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <h3 style="font-size: 14px; margin: 0; font-weight: 500;">Fiksuoti šiandienos svorį</h3>
+                        <span class="material-icons-round" style="color:var(--primary); font-size: 18px;">scale</span>
+                    </div>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <input type="text" inputmode="decimal" id="historyWeightInput" placeholder="pvz. 75.5" min="30"
+                            step="0.1" style="flex: 1; margin: 0; padding: 10px; font-size: 14px; border-radius: 8px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.2); color: #fff; outline: none;">
+                        <span style="color: var(--text-muted); font-size: 13px;">kg</span>
+                        <button class="btn btn-primary" onclick="app.saveWeightHistory()"
+                            style="padding: 10px 14px; font-size: 13px;">Išsaugoti</button>
+                    </div>
+                    <div id="weightDiffMessage"
+                        style="margin-top: 8px; font-size: 13px; text-align: center; display: none; padding: 8px; border-radius: var(--radius-sm); background: rgba(0,0,0,0.2);">
                     </div>
                 </div>
 
