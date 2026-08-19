@@ -1516,13 +1516,6 @@ Parašykite 1 trumpą, asmenišką ir motyvuojančią žinutę (iki 3-4 sakinių
         if (!periodData || periodData.length === 0) return;
 
         const labels = periodData.map(r => r.date ? r.date.substring(5) : ""); // pvz: "03-01"
-        const consumedData = periodData.map(r => r.totalKcal);
-
-        const targetData = periodData.map(r => {
-            const burnedKcal = r.trainingKcal || 0;
-            return this.data.profile.eatBackCalories !== false ? r.tdee + burnedKcal : r.tdee;
-        });
-
         const weightData = periodData.map(r => r.weight || null);
 
         // Apskaičiuojame tendencijos (slenkančio vidurkio) kreivę (iki 3 paskutinių matavimų)
@@ -1552,35 +1545,16 @@ Parašykite 1 trumpą, asmenišką ir motyvuojančią žinutę (iki 3-4 sakinių
             maxWeight = 100;
         }
 
-        // Nustatome stulpelių spalvas pagal tai ar viršijo normą
-        const bgColors = consumedData.map((consumed, index) => {
-            const target = targetData[index];
-            const diff = target - consumed;
-            if (diff >= 0) return 'rgba(46, 160, 67, 0.35)'; // Permatoma Žalia
-            if (diff >= -150) return 'rgba(210, 153, 34, 0.35)'; // Permatoma Geltona
-            return 'rgba(248, 81, 73, 0.35)'; // Permatoma Raudona
-        });
-
-        const borderColors = consumedData.map((consumed, index) => {
-            const target = targetData[index];
-            const diff = target - consumed;
-            if (diff >= 0) return '#3fb950'; // Žalia
-            if (diff >= -150) return '#d29922'; // Geltona
-            return '#f85149'; // Raudona
-        });
-
         this.chartInstance = new Chart(ctx, {
-            type: 'bar',
+            type: 'line',
             data: {
                 labels: labels,
                 datasets: [
                     {
-                        type: 'line',
                         label: 'Svoris (kg)',
                         data: weightData,
                         borderColor: '#a371f7',
                         backgroundColor: '#a371f7',
-                        yAxisID: 'yWeight',
                         tension: 0.4,
                         pointRadius: 5,
                         pointHoverRadius: 7,
@@ -1591,38 +1565,15 @@ Parašykite 1 trumpą, asmenišką ir motyvuojančią žinutę (iki 3-4 sakinių
                         spanGaps: true
                     },
                     {
-                        type: 'line',
                         label: 'Tendencija',
                         data: trendData,
                         borderColor: 'rgba(163, 113, 247, 0.4)',
                         backgroundColor: 'transparent',
-                        yAxisID: 'yWeight',
                         tension: 0.5,
                         pointRadius: 0,
                         borderWidth: 2,
                         borderDash: [5, 5],
                         spanGaps: true
-                    },
-                    {
-                        type: 'line',
-                        label: 'Dienos Norma',
-                        data: targetData,
-                        borderColor: 'rgba(255, 255, 255, 0.35)',
-                        borderWidth: 1.5,
-                        borderDash: [6, 6],
-                        yAxisID: 'yKcal',
-                        pointRadius: 0,
-                        fill: false
-                    },
-                    {
-                        type: 'bar',
-                        label: 'Suvartota Kcal',
-                        data: consumedData,
-                        backgroundColor: bgColors,
-                        borderColor: borderColors,
-                        borderWidth: 1.5,
-                        borderRadius: 6,
-                        yAxisID: 'yKcal'
                     }
                 ]
             },
@@ -1649,22 +1600,13 @@ Parašykite 1 trumpą, asmenišką ir motyvuojančią žinutę (iki 3-4 sakinių
                         ticks: { color: '#8b949e', font: { size: 10, family: "'Outfit', sans-serif" } },
                         grid: { color: 'rgba(255,255,255,0.03)' }
                     },
-                    yKcal: {
-                        type: 'linear',
+                    y: {
                         display: true,
                         position: 'left',
-                        ticks: { color: '#8b949e', font: { size: 10, family: "'Outfit', sans-serif" } },
-                        grid: { color: 'rgba(255,255,255,0.03)' },
-                        title: { display: true, text: 'Kcal', color: '#8b949e', font: { size: 10, family: "'Outfit', sans-serif" } }
-                    },
-                    yWeight: {
-                        type: 'linear',
-                        display: true,
-                        position: 'right',
                         min: minWeight,
                         max: maxWeight,
                         ticks: { color: '#a371f7', font: { size: 10, family: "'Outfit', sans-serif" }, stepSize: 0.5 },
-                        grid: { drawOnChartArea: false },
+                        grid: { color: 'rgba(255,255,255,0.03)' },
                         title: { display: true, text: 'Svoris (kg)', color: '#a371f7', font: { size: 10, family: "'Outfit', sans-serif" } }
                     }
                 }
