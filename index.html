@@ -362,6 +362,8 @@
                             </div>
                         </div>
                     </div>
+
+                    <button class="btn btn-primary" style="width: 100%; margin-top: 15px;" onclick="app.runDeepAnalysis()">Gili Mitybos Analizė (AI)</button>
                 </div>
             </section>
 
@@ -1007,6 +1009,20 @@
                 Nutaikykite kamerą į produkto barkodą
             </div>
             <button class="btn btn-primary w-100 mt-20" onclick="app.stopBarcodeScanner()">Atšaukti</button>
+        </div>
+    </div>
+
+    <!-- Deep Analysis Modal -->
+    <div id="deepAnalysisModal" class="modal">
+        <div class="modal-content glass" style="max-height: 90vh; display: flex; flex-direction: column;">
+            <div class="modal-header">
+                <h2>Gili Mitybos Analizė</h2>
+                <button class="icon-btn" onclick="app.closeModal('deepAnalysisModal')"><span class="material-icons-round">close</span></button>
+            </div>
+            <div id="deepAnalysisContent" style="padding: 15px 0; font-size: 14px; line-height: 1.5; color: var(--text-main); overflow-y: auto;">
+                Analizuojama...
+            </div>
+            <button class="btn btn-primary w-100 mt-20" onclick="app.closeModal('deepAnalysisModal')">Uždaryti</button>
         </div>
     </div>
 

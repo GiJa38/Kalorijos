@@ -1503,6 +1503,82 @@ Parašykite 1 trumpą, asmenišką ir motyvuojančią žinutę (iki 3-4 sakinių
         msgEl.innerText = message;
     },
 
+    async runDeepAnalysis() {
+        this.showModal('deepAnalysisModal');
+        const contentEl = document.getElementById('deepAnalysisContent');
+        if (!contentEl) return;
+
+        const p = this.data.profile;
+        const hasApiKey = p.geminiApiKey && p.geminiApiKey.trim().length > 5;
+
+        if (!hasApiKey) {
+            contentEl.innerHTML = '<div style="color:var(--text-muted); text-align:center;">Norėdami naudotis gilia analizės funkcija, įveskite API raktą Profilio skiltyje.</div>';
+            return;
+        }
+
+        contentEl.innerHTML = `<div class="text-center" style="padding: 30px;"><span class="material-icons-round" style="animation: spin 2s linear infinite; font-size:32px; color:var(--primary); margin-bottom: 10px;">sync</span><br><div style="color:var(--text-muted);">Atliekamas išsamus auditas (7 d.)...</div></div>`;
+
+        // Gather last 7 days of logs including meals
+        const dates = Object.keys(this.data.logs).sort((a, b) => new Date(b) - new Date(a)).slice(0, 7);
+        if (dates.length === 0) {
+            contentEl.innerHTML = 'Nėra duomenų analizei.';
+            return;
+        }
+
+        const historyLog = dates.map(date => {
+            const dayData = this.data.logs[date];
+            const meals = dayData.meals ? dayData.meals.map(m => {
+                return {
+                    laikas: new Date(m.timestamp).toLocaleTimeString('lt-LT', {hour: '2-digit', minute:'2-digit'}),
+                    pavadinimas: m.name,
+                    kcal: Math.round(m.kcal),
+                    baltymai: Math.round(m.protein || 0),
+                    riebalai: Math.round(m.fat || 0),
+                    angliavandeniai: Math.round(m.carbs || 0)
+                };
+            }) : [];
+
+            return {
+                data: date,
+                suvartota_kcal: Math.round(dayData.totalKcal || 0),
+                norma_kcal: Math.round(p.eatBackCalories !== false ? (dayData.tdee || p.tdee) + (dayData.trainingKcal || 0) : (dayData.tdee || p.tdee)),
+                svoris_kg: dayData.weight || "Neregistruota",
+                patiekalai: meals
+            };
+        });
+
+        const promptText = `Esate profesionalus, atidus ir draugiškas mitybos analitikas. Vartotojas prašo gilios (deep) mitybos audito išvados už paskutines 7 dienas.
+        
+Vartotojo profilis:
+- Tikslinė norma: ${p.tdee} kcal (plius sportas: ${p.eatBackCalories !== false ? 'Taip' : 'Ne'})
+- Lytis: ${p.gender === 'male' ? 'Vyras' : 'Moteris'}
+- Ūgis/Svoris: ${p.height} cm / ${p.weight} kg
+
+Istorija (kartu su konkrečiais patiekalais ir jų valgymo laiku):
+${JSON.stringify(historyLog, null, 2)}
+
+Užduotis:
+Parašykite išsamią, bet lengvai skaitomą analizę. Įvertinkite:
+1. Valgymo laikus (ar neprisivalgoma vėlai vakare, ar yra reguliarumas).
+2. Produktų pasirinkimą ir makroelementų balansą.
+3. Ką vartotojas daro gerai (pagirkite).
+4. Konkrečius 2-3 patarimus, ką būtų galima pagerinti (pvz. pridėti daržovių prie pietų, mažinti angliavandenius vakare).
+
+Formatas: Grąžinkite tik HTML kodą (naudokite <h3>, <p>, <ul>, <li>, <strong>). JOKIO Markdown teksto ar \`\`\`html žymų, tiesiog grynas HTML. Rašykite šiltai, lyg kalbėtumėte su žmogumi. Nesisveikinkite su "Sveiki" ar "Žinutė:".`;
+
+        try {
+            let responseText = await this.callGeminiAPI(promptText);
+            
+            // Remove markdown code blocks if gemini puts them
+            responseText = responseText.replace(/```html/gi, '').replace(/```/g, '').trim();
+
+            contentEl.innerHTML = responseText;
+        } catch (err) {
+            console.error("Deep analysis error:", err);
+            contentEl.innerHTML = `<div style="color:var(--danger); text-align:center;">Nepavyko atlikti analizės. Patikrinkite API raktą ir interneto ryšį.</div>`;
+        }
+    },
+
 
     renderHistoryChart(periodData) {
         if (!window.Chart) return; // Jei Chart.js dar neužsikrovė

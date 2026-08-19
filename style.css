@@ -811,4 +811,23 @@ select:focus {
 .macro-stat span {
     color: var(--text-main);
 }
-
+
+/* Deep Analysis Content Styles */
+#deepAnalysisContent h3, #deepAnalysisContent h4 {
+    color: var(--primary);
+    margin-top: 15px;
+    margin-bottom: 5px;
+}
+#deepAnalysisContent p {
+    margin-bottom: 10px;
+}
+#deepAnalysisContent ul {
+    margin-left: 20px;
+    margin-bottom: 15px;
+}
+#deepAnalysisContent li {
+    margin-bottom: 5px;
+}
+#deepAnalysisContent strong {
+    color: var(--text-main);
+}
