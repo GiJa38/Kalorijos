@@ -1149,16 +1149,64 @@ const app = {
     },
 
     // --- ISTORIJA IR PROGRESAS ---
+    setHistoryTab(tab) {
+        document.getElementById('tab-btn-weight').classList.toggle('active', tab === 'weight');
+        document.getElementById('tab-btn-macros').classList.toggle('active', tab === 'macros');
+        
+        document.getElementById('history-weight-panel').classList.toggle('hidden', tab !== 'weight');
+        document.getElementById('history-macros-panel').classList.toggle('hidden', tab !== 'macros');
+    },
+
+    openWeightModal() {
+        this.showModal('weightLogModal');
+        setTimeout(() => document.getElementById('historyWeightInput').focus(), 100);
+    },
+
+    renderMacroProgress(periodData) {
+        if (!periodData || periodData.length === 0) return;
+        const p = this.data.profile;
+        const weight = p.weight || 70;
+        const targetP = p.macros?.protein || (weight * 2.0);
+        const targetF = p.macros?.fat || (weight * 1.0);
+        const targetC = p.macros?.carbs || 200;
+
+        let sumP = 0, sumF = 0, sumC = 0;
+        periodData.forEach(d => {
+            sumP += (d.totalProtein || 0);
+            sumF += (d.totalFat || 0);
+            sumC += (d.totalCarbs || 0);
+        });
+
+        const len = periodData.length;
+        const avgP = sumP / len;
+        const avgF = sumF / len;
+        const avgC = sumC / len;
+
+        const el = (id, val) => { const e = document.getElementById(id); if (e) e.innerText = Math.round(val); };
+        el('avgProtein', avgP); el('targetProtein', targetP);
+        el('avgFat', avgF); el('targetFat', targetF);
+        el('avgCarbs', avgC); el('targetCarbs', targetC);
+
+        const w = (id, val, target) => {
+            const e = document.getElementById(id);
+            if (e) {
+                const percent = Math.min(100, (val / target) * 100) || 0;
+                e.style.width = percent + '%';
+            }
+        };
+        w('avgProteinBar', avgP, targetP);
+        w('avgFatBar', avgF, targetF);
+        w('avgCarbsBar', avgC, targetC);
+    },
+
     saveWeightHistory() {
         const input = document.getElementById('historyWeightInput');
         const weight = parseFloat(input.value.replace(',', '.'));
         if (!weight || weight < 30) return alert('Įveskite teisingą svorį!');
 
-        // Skaičiuojame skirtumą nuo senojo svorio
         const oldWeight = this.data.profile.weight || 0;
         const diff = weight - oldWeight;
 
-        // Atnaujinam profilį
         this.data.profile.weight = weight;
 
         this.saveData();
@@ -1170,7 +1218,6 @@ const app = {
         const wDisplay = document.getElementById('currentWeightDisplay');
         if (wDisplay) wDisplay.innerText = weight;
 
-        // Atvaizduojame skirtumą UI
         const msgDiv = document.getElementById('weightDiffMessage');
         if (msgDiv) {
             msgDiv.style.display = 'block';
@@ -1184,18 +1231,10 @@ const app = {
 
             setTimeout(() => {
                 msgDiv.style.display = 'none';
-            }, 4000);
-        }
-
-        const btn = document.querySelector('#view-history .btn-primary');
-        if (btn) {
-            const originTxt = btn.innerText;
-            btn.innerText = 'Išsaugota! ✓';
-            btn.style.backgroundColor = 'var(--success)';
-            setTimeout(() => {
-                btn.innerText = originTxt;
-                btn.style.backgroundColor = '';
-            }, 2000);
+                this.closeModal('weightLogModal');
+            }, 1500);
+        } else {
+            this.closeModal('weightLogModal');
         }
     },
 
@@ -1329,23 +1368,38 @@ const app = {
             }
         }
 
-        // Nupiešiame grafiką
-        this.renderHistoryChart(periodData);
+        // Gamification: Konsistencija
+        let greenDays = 0;
+        periodData.forEach(r => {
+            const burned = r.trainingKcal || 0;
+            const target = r.tdee + (this.data.profile.eatBackCalories !== false ? burned : 0);
+            if ((r.totalKcal || 0) <= target + 50) {
+                greenDays++;
+            }
+        });
+        const consistencyPercent = periodData.length > 0 ? Math.round((greenDays / periodData.length) * 100) : 0;
+        
+        const consistencyElem = document.getElementById('consistencyPercent');
+        const consistencyDaysElem = document.getElementById('consistencyDays');
+        const consistencyRing = document.getElementById('consistencyRing');
+        
+        if (consistencyElem) consistencyElem.innerText = `${consistencyPercent}%`;
+        if (consistencyDaysElem) consistencyDaysElem.innerText = `${greenDays} iš ${periodData.length} dienų`;
+        if (consistencyRing) {
+            consistencyRing.style.background = `conic-gradient(var(--success) ${consistencyPercent}%, rgba(255,255,255,0.1) 0%)`;
+        }
 
-        // Sugeneruojame ir parodome AI patarėją
-        // Pakeitimas: Paduodame tik periodData (praeities pilnas dienas), be šiandienos pusinių duomenų,
-        // kad AI netransliuotų "trūksta baltymų" iš pat ryto pamaldavus tik pusryčius.
+        this.renderMacroProgress(periodData);
+        this.renderHistoryChart(periodData);
         this.analyzeWeeklyInsights(periodData);
     },
 
     async analyzeWeeklyInsights(periodData) {
-        const list = document.getElementById('weeklyInsightsList');
-        if (!list) return;
-
-        list.innerHTML = '';
+        const msgEl = document.getElementById('aiCoachMessage');
+        if (!msgEl) return;
 
         if (!periodData || periodData.length < 1) {
-            list.innerHTML = '<li class="empty-state">Per mažai dienų analizei. Pridėkite šiandienos suvalgytą maistą.</li>';
+            msgEl.innerText = 'Trūksta duomenų analizei. Pridėkite šiandienos suvalgytą maistą.';
             return;
         }
 
@@ -1357,12 +1411,7 @@ const app = {
             return;
         }
 
-        list.innerHTML = `
-            <li class="empty-state" style="color: var(--primary);">
-                <span class="material-icons-round" style="animation: spin 2s linear infinite; font-size: 24px; display: inline-block; margin-bottom: 8px;">sync</span><br>
-                AI analizuoja jūsų praėjusios savaitės duomenis...
-            </li>
-        `;
+        msgEl.innerHTML = `<span style="color:var(--primary); display:flex; align-items:center; gap:5px;"><span class="material-icons-round" style="animation: spin 2s linear infinite; font-size:16px;">sync</span> Analizuojama...</span>`;
 
         const historyLog = periodData.map(d => {
             return {
@@ -1378,55 +1427,22 @@ const app = {
             };
         });
 
-        const promptText = `Esate profesionalus mitybos asistentas. Išanalizuokite šiuos vartotojo praėjusios savaitės mitybos ir svorio duomenis:
+        const promptText = `Esate profesionalus, draugiškas mitybos treneris (AI asistentas). Išanalizuokite šiuos vartotojo praėjusios savaitės mitybos ir svorio duomenis:
 Vartotojo profilis:
 - Ūgis: ${p.height} cm
 - Svoris: ${p.weight} kg
-- Amžius: ${p.age} m.
 - Lytis: ${p.gender === 'male' ? 'Vyras' : 'Moteris'}
-- Tikslinė norma (TDEE): ${p.tdee} kcal (baltymai: ${p.macros.protein}g, riebalai: ${p.macros.fat}g, angliavandeniai: ${p.macros.carbs}g, skaidulos: ${p.macros.fiber}g)
+- Tikslinė norma: ${p.tdee} kcal
 
-Savaitės istorijos logas (pagal dienas):
+Savaitės istorija:
 ${JSON.stringify(historyLog, null, 2)}
 
 Užduotis:
-Sugeneruokite 3-4 išsamias, labai asmeniškas ir unikalias savaitės įžvalgas (insights) lietuvių kalba, atsižvelgdami į šiuos duomenis. Pastebėkite dėsningumus ar tendencijas (pvz. ar suvartojamos kalorijos atitiko tikslą, ar svoris krenta/auga, ar pakanka baltymų ir skaidulų, ar sportas padėjo palaikyti kalorijų deficitą).
-Atsakymą pateikite išskirtinai tik kaip JSON formatą. Nenaudokite markdown pakuotės (jokių \`\`\`json ar \`\`\`).
-
-JSON schema (grąžinkite masyvą):
-[
-  {
-    "type": "success|warning|danger|info",
-    "icon": "analytics|verified|warning_amber|fitness_center|favorite|grass|bedtime|fastfood",
-    "title": "Trumpas įžvalgos pavadinimas (lietuviškai)",
-    "text": "Išsamus patarimas ar pastebėjimas vartotojui (lietuviškai, 2-3 sakiniai)."
-  }
-]`;
+Parašykite 1 trumpą, asmenišką ir motyvuojančią žinutę (iki 3-4 sakinių, nenaudokite sveikinimo kaip "Labas", tiesiog pradėkite mintį). Pastebėkite dėsningumus, pagirkite už pastangas arba patarkite ką lengvai pakeisti (pvz. dėl baltymų ar svorio tendencijos). Rašykite šiltai ir natūraliai lietuvių kalba, lyg rašytumėte tiesiai vartotojui. Grąžinkite TIK pačios žinutės tekstą.`;
 
         try {
             const responseText = await this.callGeminiAPI(promptText);
-            const insights = JSON.parse(responseText);
-
-            list.innerHTML = '';
-            if (!Array.isArray(insights) || insights.length === 0) {
-                throw new Error("Atsakymas nėra masyvas");
-            }
-
-            insights.forEach(ins => {
-                const li = document.createElement('li');
-                li.className = `insight-card ${ins.type}`;
-                li.innerHTML = `
-                    <div class="insight-icon">
-                        <span class="material-icons-round">${ins.icon || 'lightbulb'}</span>
-                    </div>
-                    <div class="insight-content">
-                        <strong>${ins.title}</strong>
-                        <div>${ins.text}</div>
-                    </div>
-                `;
-                list.appendChild(li);
-            });
-
+            msgEl.innerHTML = responseText;
         } catch (err) {
             console.error("AI įžvalgų klaida:", err);
             this.renderRuleBasedWeeklyInsights(periodData);
@@ -1434,370 +1450,53 @@ JSON schema (grąžinkite masyvą):
     },
 
     renderRuleBasedWeeklyInsights(periodData) {
-        const list = document.getElementById('weeklyInsightsList');
-        if (!list) return;
-
-        list.innerHTML = '';
-        const insights = [];
+        const msgEl = document.getElementById('aiCoachMessage');
+        if (!msgEl) return;
 
         if (!periodData || periodData.length < 1) {
-            list.innerHTML = '<li class="empty-state">Per mažai dienų analizei. Pridėkite šiandienos suvalgytą maistą.</li>';
+            msgEl.innerText = 'Per mažai dienų analizei. Pridėkite šiandienos suvalgytą maistą.';
             return;
         }
 
-        let totalKcal = 0, totalP = 0, totalF = 0, totalC = 0, totalFib = 0;
+        let totalKcal = 0, totalP = 0, totalF = 0, totalC = 0;
         let successfulDays = 0;
-        let cheatDays = 0;
-
-        let lateCarbsCount = 0;
-        let junkFoodCount = 0;
-        let healthyFatsCount = 0;
-        let skippedBreakfastCount = 0;
-
-        const junkPattern = /čipsai|cipsai|šokoladas|sokoladas|pica|burgeris|mėsainis|mesainis|saldainiai|tortas|pyragas|ledai|spurgos|bandel/i;
-        const healthyFatPattern = /avokad|riešut|riesut|lašis|lasis|alyvuog|sėklos|seklos|chia|linų|linu/i;
 
         const p = this.data.profile;
 
-        periodData.forEach(r => {
-            const kcal = r.totalKcal || 0;
-            totalKcal += kcal;
-            totalP += (r.totalProtein || 0);
-            totalF += (r.totalFat || 0);
-            totalC += (r.totalCarbs || 0);
-            totalFib += (r.totalFiber || 0);
+        periodData.forEach(d => {
+            totalKcal += d.totalKcal || 0;
+            totalP += d.totalProtein || 0;
+            totalF += d.totalFat || 0;
+            totalC += d.totalCarbs || 0;
 
-            const dynamicTDEE = (p.eatBackCalories !== false) ? r.tdee + (r.trainingKcal || 0) : r.tdee;
-            const maintenance = r.tdee - (p.goal || 0) + (r.trainingKcal || 0);
-
-            if (kcal > 0 && kcal <= dynamicTDEE + 150) {
-                successfulDays++;
-            }
-
-            if (kcal > maintenance + 300) {
-                cheatDays++;
-            }
-
-            let hadBreakfast = false;
-            let dayJunkCount = 0;
-            let dayHealthyFatCount = 0;
-
-            if (r.items && Array.isArray(r.items)) {
-                r.items.forEach(item => {
-                    const itemName = item.name ? item.name.toLowerCase() : '';
-                    if (item.timestamp && typeof item.timestamp === 'string') {
-                        const [hh] = item.timestamp.split(':');
-                        const hour = parseInt(hh);
-                        if (hour >= 20 && item.carbs > 15) {
-                            lateCarbsCount++;
-                        }
-                        if (hour < 11) {
-                            hadBreakfast = true;
-                        }
-                    }
-                    if (junkPattern.test(itemName)) dayJunkCount++;
-                    if (healthyFatPattern.test(itemName)) dayHealthyFatCount++;
-                });
-            }
-
-            if (kcal > 0 && !hadBreakfast) skippedBreakfastCount++;
-            if (dayJunkCount > 0) junkFoodCount++;
-            if (dayHealthyFatCount > 0) healthyFatsCount++;
+            const targetKcal = p.eatBackCalories !== false ? d.tdee + (d.trainingKcal || 0) : d.tdee;
+            if ((d.totalKcal || 0) <= targetKcal + 50) successfulDays++;
         });
 
-        const daysWithRecords = periodData.filter(r => r.totalKcal > 0).length;
-        if (daysWithRecords === 0) {
-            list.innerHTML = '<li class="empty-state">Kol kas tuščia. Pridėkite suvalgyto maisto.</li>';
-            return;
+        const len = periodData.length;
+        const avgKcal = totalKcal / len;
+        const avgP = totalP / len;
+
+        const targetP = p.macros?.protein || (p.weight * 2.0) || 100;
+        const consistency = Math.round((successfulDays / len) * 100);
+
+        let message = "";
+
+        if (consistency >= 80) {
+            message += `Puikus darbas! Jums pavyko išlaikyti deficitą net ${consistency}% dienų. Tęskite taip ir toliau! `;
+        } else if (consistency >= 50) {
+            message += `Nebloga savaitė, pavyko pasiekti tikslą ${consistency}% dienų. Pabandykite planuoti bent vieną dieną į priekį. `;
+        } else {
+            message += `Šią savaitę buvo kiek sunkiau laikytis normos. Viskas gerai, pradėkime nuo mažų žingsnių! `;
         }
 
-        const pctP = ((totalP * 4) / totalKcal) * 100 || 0;
-        const pctF = ((totalF * 9) / totalKcal) * 100 || 0;
-        const pctC = ((totalC * 4) / totalKcal) * 100 || 0;
-        
-        const avgFiber = totalFib / daysWithRecords;
-        const targetFiber = p.macros.fiber || Math.round((p.tdee / 1000) * 14);
-
-        // --- Helper for Status Tags ---
-        const getStatusTag = (current, target, isGram = false) => {
-            const diff = current - target;
-            const margin = isGram ? 3 : 5; // 3g margin for fiber, 5% for macros
-            if (Math.abs(diff) <= margin) return '<span class="status-tag ok">Norma</span>';
-            if (diff > margin) return '<span class="status-tag high">Viršyta</span>';
-            return '<span class="status-tag low">Trūksta</span>';
-        };
-
-        const getMacroRow = (label, current, target, color, isGram = false) => {
-            const unit = isGram ? 'g' : '%';
-            let targetLeft = target;
-            let fillWidth = current;
-
-            if (isGram) {
-                if (current >= target && target > 0) {
-                    targetLeft = (target / current) * 100;
-                    fillWidth = 100;
-                } else if (target > 0) {
-                    targetLeft = 100;
-                    fillWidth = (current / target) * 100;
-                } else {
-                    targetLeft = 0; fillWidth = 0;
-                }
-            } else {
-                fillWidth = Math.min(current, 100);
-            }
-
-            return `
-            <div class="macro-comp-row">
-                <div class="macro-comp-labels">
-                    <span>${label}: <strong>${Math.round(current)}${unit}</strong> (tikslas ${Math.round(target)}${unit})</span>
-                    ${getStatusTag(current, target, isGram)}
-                </div>
-                <div class="macro-comp-bar-bg">
-                    <div class="macro-comp-target-line" style="left: ${targetLeft}%"></div>
-                    <div class="macro-comp-bar-fill" style="width: ${fillWidth}%; background: ${color}"></div>
-                </div>
-            </div>
-            `;
-        };
-
-        // --- ALWAYS ON: Weekly Overview (Refined) ---
-        insights.push({
-            type: 'info',
-            icon: 'analytics',
-            title: `Mitybos balansas (${daysWithRecords} d.)`,
-            text: `Šie rodikliai rodo jūsų mitybos išklotinę: makroelementų bendrą vidurkį (%) ir vidutinį skaidulų kiekį per dieną (g).`,
-            customHtml: `
-                <div class="macro-comparison-container">
-                    ${getMacroRow('Baltymai', pctP, 30, 'var(--macro-protein)')}
-                    ${getMacroRow('Riebalai', pctF, 30, 'var(--macro-fat)')}
-                    ${getMacroRow('Angliavandeniai', pctC, 40, 'var(--macro-carbs)')}
-                    ${getMacroRow('Skaidulos (vid.)', avgFiber, targetFiber, 'var(--macro-fiber)', true)}
-                </div>
-            `
-        });
-
-        // Helper for selecting random variation
-        const getRandomText = (textsArray) => textsArray[Math.floor(Math.random() * textsArray.length)];
-
-        // Helper for finding recommendation from user's meals
-        const findUserMealRecommendation = (type) => {
-            if (!this.data.meals || this.data.meals.length === 0) return null;
-            return this.data.meals.find(m => {
-                const kcal = m.kcal;
-                const pRatio = (m.protein * 4) / kcal;
-                const fRatio = (m.fat * 9) / kcal;
-                if (type === 'protein') return pRatio > 0.3;
-                if (type === 'healthy_fat') return fRatio > 0.4;
-                return false;
-            });
-        };
-
-        // 1. Consistency & Deficits
-        if (successfulDays === daysWithRecords && daysWithRecords >= 3) {
-            insights.push({ 
-                type: 'success', 
-                icon: 'verified',
-                title: 'Geležinė kantrybė!', 
-                text: getRandomText([
-                    `Visas ${daysWithRecords} dienas laikėtės plano. Tai tiesiausias kelias rezultatų link!`,
-                    `Puiki disciplina! ${daysWithRecords} dienų iš eilės neviršijote normos.`,
-                    `Jūsų nuoseklumas įkvepia. Tęsiant tokį ritmą, tikslai bus pasiekti labai greitai.`
-                ])
-            });
-        } else if (cheatDays > 1) {
-            insights.push({ 
-                type: 'danger', 
-                icon: 'warning_amber',
-                title: 'Kalorijų kalneliai', 
-                text: getRandomText([
-                    `Pastebėjome kelias dienas su dideliu viršijimu. Pabandykite nebadauti pirmoje dienos pusėje, taip išvengsite persivalgymo vakare.`,
-                    `Turėjote stiprių kalorijų šuolių. Viena iškrova normalu, bet stenkitės sugrįžti į ritmą ir rasti balansą.`,
-                    `Stabilumas yra svarbiau už vienkartines pastangas. Venkite "viskas arba nieko" mąstymo – radus aukso viduriuką, procesas taps malonesnis.`
-                ])
-            });
+        if (avgP < targetP * 0.8) {
+            message += `Pastebėjau, kad trūksta baltymų (vidurkis ${Math.round(avgP)}g iš ${Math.round(targetP)}g). Pabandykite įtraukti daugiau kiaušinių, varškės ar liesos mėsos.`;
+        } else {
+            message += `Baltymų suvartojimas puikus, tai padės išlaikyti raumenų masę!`;
         }
 
-        // 2. Protein
-        const avgP_grams = totalP / daysWithRecords;
-        const gPerKg = avgP_grams / p.weight;
-        if (gPerKg < 1.2 || pctP < 20) {
-            const mealRec = findUserMealRecommendation('protein');
-            insights.push({ 
-                type: 'warning', 
-                icon: 'fitness_center',
-                title: 'Apie baltymus ir sotumą', 
-                text: getRandomText([
-                    `Baltymai sudaro tik ${pctP.toFixed(0)}% raciono. Tai pagrindinė statybinė medžiaga, kuri ilgiausiai palaiko sotumo jausmą.`,
-                    `Sunkiai surenkate baltymų normą. Dažnai dėl to atsiranda potraukis užkandžiams vakarais.`,
-                    `Jei trūksta energijos ar sunkiai atsistato raumenys – verta peržvelgti baltymų šaltinius savo lėkštėje.`
-                ]),
-                recommendation: mealRec ? `Puikus sprendimas: jūsų receptas <strong>${mealRec.name}</strong>!` : 'Pabandykite pusryčiams pridėti kiaušinį ar varškės.'
-            });
-        } else if (pctP > 40) {
-            insights.push({ 
-                type: 'info', 
-                icon: 'info',
-                title: 'Baltymų karalius/karalienė', 
-                text: getRandomText([
-                    `Baltymai sudaro net ${pctP.toFixed(0)}% raciono. Nuostabu sotumui, bet neaukovite daržovių!`,
-                    `Baltymų kiekis labai solidus. Tai padės išlaikyti raumeninę masę deficito metu.`
-                ])
-            });
-        }
-
-        // 3. Fats
-        if (pctF < 20) {
-            insights.push({ 
-                type: 'warning', 
-                icon: 'favorite',
-                title: 'Riebalai – organizmo draugai', 
-                text: getRandomText([
-                    `Riebalų kiekis (${pctF.toFixed(0)}%) yra gana žemas. Nebijokite sveikų riebalų – jie kritiškai svarbūs hormonų sistemai.`,
-                    `Nepašalinkite riebalų visiškai! Geriau mažiau porcijų, bet kokybiški (alyvuogių aliejus, avokadai).`
-                ])
-            });
-        } else if (pctF > 45) {
-            insights.push({ 
-                type: 'danger', 
-                icon: 'opacity',
-                title: 'Kalorijų tankis', 
-                text: getRandomText([
-                    `Riebalai sudaro didelę dalį kalorijų (${pctF.toFixed(0)}%). Nors tai skanu ir sveika, riebaliniame maiste labai daug kalorijų mažame tūryje.`,
-                    `Pastebima tendencija valgyti labai riebiai. Rekomenduojame riebesnius produktus matuoti šaukštais, o ne "iš akies".`
-                ])
-            });
-        }
-
-        // Habits (Stronger thresholds)
-        if (healthyFatsCount >= Math.max(2, Math.floor(daysWithRecords / 2))) {
-            insights.push({ 
-                type: 'success', 
-                icon: 'star',
-                title: 'Kokybiški riebalai', 
-                text: getRandomText([
-                    `Nuolat įtraukiate sveikų riebalų (avokadai, lašiša, riešutai ir kt.). Toks įprotis mažina organizmo uždegimus!`,
-                    `Džiugu matyti vertingų riebalų šaltinių stabilų vartojimą. Švari mityba atsiperka ne tik svoriu, bet ir savijauta.`,
-                    `Puiku! Kokybiški riebalų šaltiniai padeda pasisavinti vitaminus ir išlaiko stabilų cukraus lygį kraujyje.`
-                ])
-            });
-        }
-
-        // 4. Carbs / Fiber
-        if (pctC > 55) {
-            insights.push({ 
-                type: 'warning', 
-                icon: 'bolt',
-                title: 'Angliavandenių dominuojamas', 
-                text: getRandomText([
-                    `Angliavandeniai dominuoja jūsų mityboje (${pctC.toFixed(0)}%). Jei trūksta energijos, pabandykite dalį jų pakeisti baltymais ar riebalais.`,
-                    `Didelę dalį kalorijų gaunate iš angliavandenių. Tai puiku sportuojant, bet sėdimam darbui gali sukelti mieguistumą po pietų.`
-                ])
-            });
-        }
-
-        if (avgFiber >= targetFiber - 3 && targetFiber > 0) {
-            insights.push({
-                type: 'success',
-                icon: 'grass',
-                title: 'Skaidulų norma',
-                text: getRandomText([
-                    `Super! Renkate pakankamai skaidulų. Tai užtikrina puikų virškinimą ir palaiko švarią žarnyno mikroflorą.`,
-                    `Skaidulų norma pasiekta! Daug daržovių lėkštėje reiškia daugiau tūrio skrandyje, todėl mažiau alkio net esant deficitui.`
-                ])
-            });
-        } else if (avgFiber < targetFiber * 0.6 && targetFiber > 0) {
-            insights.push({
-                type: 'warning',
-                icon: 'eco',
-                title: 'Trūksta skaidulų',
-                text: getRandomText([
-                    `Skaidulų vidurkis per žemas. Be jų net ir subalansuota mityba gali varginti virškinamąjį traktą.`,
-                    `Pastebime daržovių ir pilno grūdo produktų trūkumą. Skaidulos stabdo cukraus įsisavinimą ir padeda ilgiau jaustis žvaliems.`
-                ])
-            });
-        }
-
-        // 5. Timings & Quality
-        if (lateCarbsCount >= 2) {
-            insights.push({ 
-                type: 'info', 
-                icon: 'bedtime',
-                title: 'Vėlyvi angliavandeniai', 
-                text: getRandomText([
-                    `Vakarais renkatės daug angliavandenių turintį maistą. Nors tai neaugina svorio tiesiogiai, ryte galite jaustis apsunkę.`,
-                    `Pabandykite maistą su daugiau angliavandenių perkelti į dienos vidurį, o vakarienei palikti baltymus ir daržoves.`
-                ])
-            });
-        }
-
-        if (junkFoodCount >= Math.max(2, Math.floor(daysWithRecords / 2))) {
-            insights.push({ 
-                type: 'danger', 
-                icon: 'fastfood',
-                title: 'Perdirbto maisto spąstai', 
-                text: getRandomText([
-                    `Racione dažnokai pasitaiko greito ar perdirbto maisto. Atminkite, kad jis trumpam pasotina, bet greitai sugrąžina "žvėrišką alkį".`,
-                    `Toks maistas labai kaloringas ir skanus, todėl lengva jo persivalgyti. Pabandykite po truputį grįžti prie "gryno" neperdirbto maisto.`
-                ])
-            });
-        }
-
-        if (skippedBreakfastCount >= Math.max(2, Math.floor(daysWithRecords / 2))) {
-            insights.push({
-                type: 'info',
-                icon: 'free_breakfast',
-                title: 'Pusbadačio rytas',
-                text: getRandomText([
-                    `Dažnai ilgai nevalgote iki pietų. Tai geras būdas „sutaupyti“ kalorijų (Protarpinis badavimas), jei vakare sugebate nepersivalgyti.`,
-                    `Matome, kad esate linkę praleisti pusryčius. Svarbiausia, kad po tokio ilgo tarpo dienos eigoje mityba išliktų saikinga ir racionali!`
-                ])
-            });
-        }
-
-        // 6. Generic Fallback Tips (if not many specific insights were triggered)
-        if (insights.length <= 2) {
-            insights.push({
-                type: 'info',
-                icon: 'lightbulb',
-                title: 'Dienos patarimas',
-                text: getRandomText([
-                    `Vanduo yra viskas! Išgėrus stiklinę vandens prieš valgį, dažnai greičiau pajuntamas sotumas.`,
-                    `Valgymo tempas svarbus. Smegenys gauna sotumo signalą tik po 15-20 minučių. Valgykite lėtai!`,
-                    `Jei miegate mažiau nei 7 valandas, kitą dieną alkio hormonai tampa daug aktyvesni ir verčia griebtis saldumynų.`,
-                    `Neatmeskite mėgstamų produktų, tiesiog pamažinkite jų porcijas ir suderinkite lėkštėje su baltymais.`,
-                    `Planavimas apsaugo nuo impulsyvaus valgymo. Prieš einant apsipirkti ar išalkus visuomet turėkite planą!`
-                ])
-            });
-        }
-
-        // Render UI
-        insights.forEach(ins => {
-            const li = document.createElement('li');
-            li.className = `insight-card ${ins.type}`;
-
-            let html = `
-                <div class="insight-icon">
-                    <span class="material-icons-round">${ins.icon || 'lightbulb'}</span>
-                </div>
-                <div class="insight-content">
-                    <strong>${ins.title}</strong>
-                    <div>${ins.text}</div>
-                    ${ins.customHtml || ''}
-            `;
-            
-            if (ins.recommendation) {
-                html += `
-                    <div class="insight-recommendation">
-                        <span class="material-icons-round">tips_and_updates</span>
-                        <span>${ins.recommendation}</span>
-                    </div>
-                `;
-            }
-            
-            html += `</div>`;
-            li.innerHTML = html;
-            list.appendChild(li);
-        });
+        msgEl.innerText = message;
     },
 
 
@@ -1821,6 +1520,22 @@ JSON schema (grąžinkite masyvą):
         });
 
         const weightData = periodData.map(r => r.weight || null);
+
+        // Apskaičiuojame tendencijos (slenkančio vidurkio) kreivę (iki 3 paskutinių matavimų)
+        const trendData = [];
+        let validWeightsArray = [];
+        for (let i = 0; i < weightData.length; i++) {
+            if (weightData[i] !== null) {
+                validWeightsArray.push(weightData[i]);
+            }
+            if (validWeightsArray.length === 0) {
+                trendData.push(null);
+            } else {
+                const slice = validWeightsArray.slice(-3);
+                const avg = slice.reduce((a, b) => a + b, 0) / slice.length;
+                trendData.push(Number(avg.toFixed(2)));
+            }
+        }
 
         // Apskaičiuojame svorio min ir max rėžius, kad ašis nebūtų nuo 0
         const validWeights = weightData.filter(w => w !== null && w > 0);
@@ -1869,7 +1584,20 @@ JSON schema (grąžinkite masyvą):
                         pointBorderColor: '#ffffff',
                         pointBorderWidth: 1.5,
                         borderWidth: 3,
-                        spanGaps: true // Sujungs kreivę per tas dienas, kai svoris neregistruotas
+                        spanGaps: true
+                    },
+                    {
+                        type: 'line',
+                        label: 'Tendencija',
+                        data: trendData,
+                        borderColor: 'rgba(163, 113, 247, 0.4)',
+                        backgroundColor: 'transparent',
+                        yAxisID: 'yWeight',
+                        tension: 0.5,
+                        pointRadius: 0,
+                        borderWidth: 2,
+                        borderDash: [5, 5],
+                        spanGaps: true
                     },
                     {
                         type: 'line',
@@ -2881,6 +2609,10 @@ JSON schema:
         if (!list) return;
         list.innerHTML = '';
         const queryLower = query.toLowerCase().trim();
+        
+        if (queryLower === '') {
+            return;
+        }
 
         const foodsCandidates = this.data.foods.map(f => ({ ...f, itemType: 'food' }));
         const mealsCandidates = this.data.meals.map(m => ({ ...m, itemType: 'meal' }));
