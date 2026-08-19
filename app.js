@@ -1541,9 +1541,14 @@ Parašykite 1 trumpą, asmenišką ir motyvuojančią žinutę (iki 3-4 sakinių
                 const meals = dayData.items ? dayData.items.map(m => {
                     let laikasStr = "Nenurodyta";
                     if (m.timestamp) {
-                        const d = new Date(m.timestamp);
-                        if (!isNaN(d.getTime())) {
-                            laikasStr = d.toLocaleTimeString('lt-LT', {hour: '2-digit', minute:'2-digit'});
+                        if (typeof m.timestamp === 'string' && m.timestamp.includes(':')) {
+                            // Jau suformatuotas kaip "14:30"
+                            laikasStr = m.timestamp;
+                        } else {
+                            const d = new Date(m.timestamp);
+                            if (!isNaN(d.getTime())) {
+                                laikasStr = d.toLocaleTimeString('lt-LT', {hour: '2-digit', minute:'2-digit'});
+                            }
                         }
                     }
                     return {
