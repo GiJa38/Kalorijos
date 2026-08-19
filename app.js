@@ -1518,37 +1518,46 @@ Parašykite 1 trumpą, asmenišką ir motyvuojančią žinutę (iki 3-4 sakinių
 
         contentEl.innerHTML = `<div class="text-center" style="padding: 30px;"><span class="material-icons-round" style="animation: spin 2s linear infinite; font-size:32px; color:var(--primary); margin-bottom: 10px;">sync</span><br><div style="color:var(--text-muted);">Atliekamas išsamus auditas (7 d.)...</div></div>`;
 
-        // Gather last 7 days of logs including meals
-        const dates = Object.keys(this.data.logs).sort((a, b) => new Date(b) - new Date(a)).slice(0, 7);
-        if (dates.length === 0) {
-            contentEl.innerHTML = 'Nėra duomenų analizei.';
-            return;
-        }
+        try {
+            // Gather last 7 days of logs including meals
+            const logsObj = this.data.logs || {};
+            const dates = Object.keys(logsObj).sort((a, b) => new Date(b) - new Date(a)).slice(0, 7);
+            if (dates.length === 0) {
+                contentEl.innerHTML = 'Nėra duomenų analizei.';
+                return;
+            }
 
-        const historyLog = dates.map(date => {
-            const dayData = this.data.logs[date];
-            const meals = dayData.meals ? dayData.meals.map(m => {
+            const historyLog = dates.map(date => {
+                const dayData = logsObj[date];
+                const meals = dayData.meals ? dayData.meals.map(m => {
+                    let laikasStr = "Nenurodyta";
+                    if (m.timestamp) {
+                        const d = new Date(m.timestamp);
+                        if (!isNaN(d.getTime())) {
+                            laikasStr = d.toLocaleTimeString('lt-LT', {hour: '2-digit', minute:'2-digit'});
+                        }
+                    }
+                    return {
+                        laikas: laikasStr,
+                        pavadinimas: m.name || "Nežinoma",
+                        kcal: Math.round(m.kcal || 0),
+                        baltymai: Math.round(m.protein || 0),
+                        riebalai: Math.round(m.fat || 0),
+                        angliavandeniai: Math.round(m.carbs || 0)
+                    };
+                }) : [];
+
                 return {
-                    laikas: new Date(m.timestamp).toLocaleTimeString('lt-LT', {hour: '2-digit', minute:'2-digit'}),
-                    pavadinimas: m.name,
-                    kcal: Math.round(m.kcal),
-                    baltymai: Math.round(m.protein || 0),
-                    riebalai: Math.round(m.fat || 0),
-                    angliavandeniai: Math.round(m.carbs || 0)
+                    data: date,
+                    suvartota_kcal: Math.round(dayData.totalKcal || 0),
+                    norma_kcal: Math.round(p.eatBackCalories !== false ? (dayData.tdee || p.tdee) + (dayData.trainingKcal || 0) : (dayData.tdee || p.tdee)),
+                    svoris_kg: dayData.weight || "Neregistruota",
+                    patiekalai: meals
                 };
-            }) : [];
+            });
 
-            return {
-                data: date,
-                suvartota_kcal: Math.round(dayData.totalKcal || 0),
-                norma_kcal: Math.round(p.eatBackCalories !== false ? (dayData.tdee || p.tdee) + (dayData.trainingKcal || 0) : (dayData.tdee || p.tdee)),
-                svoris_kg: dayData.weight || "Neregistruota",
-                patiekalai: meals
-            };
-        });
-
-        const promptText = `Esate profesionalus, atidus ir draugiškas mitybos analitikas. Vartotojas prašo gilios (deep) mitybos audito išvados už paskutines 7 dienas.
-        
+            const promptText = `Esate profesionalus, atidus ir draugiškas mitybos analitikas. Vartotojas prašo gilios (deep) mitybos audito išvados už paskutines 7 dienas.
+            
 Vartotojo profilis:
 - Tikslinė norma: ${p.tdee} kcal (plius sportas: ${p.eatBackCalories !== false ? 'Taip' : 'Ne'})
 - Lytis: ${p.gender === 'male' ? 'Vyras' : 'Moteris'}
@@ -1566,7 +1575,6 @@ Parašykite išsamią, bet lengvai skaitomą analizę. Įvertinkite:
 
 Formatas: Grąžinkite tik HTML kodą (naudokite <h3>, <p>, <ul>, <li>, <strong>). JOKIO Markdown teksto ar \`\`\`html žymų, tiesiog grynas HTML. Rašykite šiltai, lyg kalbėtumėte su žmogumi. Nesisveikinkite su "Sveiki" ar "Žinutė:".`;
 
-        try {
             let responseText = await this.callGeminiAPI(promptText);
             
             // Remove markdown code blocks if gemini puts them
@@ -1575,7 +1583,7 @@ Formatas: Grąžinkite tik HTML kodą (naudokite <h3>, <p>, <ul>, <li>, <strong>
             contentEl.innerHTML = responseText;
         } catch (err) {
             console.error("Deep analysis error:", err);
-            contentEl.innerHTML = `<div style="color:var(--danger); text-align:center;">Nepavyko atlikti analizės. Patikrinkite API raktą ir interneto ryšį.</div>`;
+            contentEl.innerHTML = `<div style="color:var(--danger); text-align:center;">Nepavyko atlikti analizės.<br><small>${err.message}</small></div>`;
         }
     },
 
