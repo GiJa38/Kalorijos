@@ -242,6 +242,14 @@
                     <button class="kitchen-tab" id="tab-btn-macros" onclick="app.setHistoryTab('macros')">Mityba</button>
                 </div>
 
+                <!-- Global Timeframe Selector -->
+                <div style="display: flex; justify-content: center; gap: 10px; margin-bottom: 20px;">
+                    <button class="btn btn-sm timeframe-btn active" id="tf-7" onclick="app.setHistoryTimeframe(7)">7 d.</button>
+                    <button class="btn btn-sm timeframe-btn" id="tf-14" onclick="app.setHistoryTimeframe(14)">14 d.</button>
+                    <button class="btn btn-sm timeframe-btn" id="tf-30" onclick="app.setHistoryTimeframe(30)">30 d.</button>
+                </div>
+
+
                 <!-- Weight Tab Content -->
                 <div id="history-weight-panel">
                     
@@ -287,11 +295,6 @@
                     <div class="glass-card mb-15" style="padding: 15px 10px;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding: 0 5px;">
                             <h3 style="font-size: 14px; color: var(--text-muted); margin: 0;">Svorio tendencija (Trend)</h3>
-                            <div style="display: flex; gap: 5px;">
-                                <button class="btn btn-sm timeframe-btn active" id="tf-7" onclick="app.setHistoryTimeframe(7)">7 d.</button>
-                                <button class="btn btn-sm timeframe-btn" id="tf-14" onclick="app.setHistoryTimeframe(14)">14 d.</button>
-                                <button class="btn btn-sm timeframe-btn" id="tf-30" onclick="app.setHistoryTimeframe(30)">30 d.</button>
-                            </div>
                         </div>
                         <div style="position: relative; height: 250px; width: 100%;">
                             <canvas id="historyChart"></canvas>

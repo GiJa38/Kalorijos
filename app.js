@@ -1438,10 +1438,14 @@ Savaitės istorija:
 ${JSON.stringify(historyLog, null, 2)}
 
 Užduotis:
-Parašykite 1 trumpą, asmenišką ir motyvuojančią žinutę (iki 3-4 sakinių, nenaudokite sveikinimo kaip "Labas", tiesiog pradėkite mintį). Pastebėkite dėsningumus, pagirkite už pastangas arba patarkite ką lengvai pakeisti (pvz. dėl baltymų ar svorio tendencijos). Rašykite šiltai ir natūraliai lietuvių kalba, lyg rašytumėte tiesiai vartotojui. Grąžinkite TIK pačios žinutės tekstą.`;
+Parašykite 1 trumpą, asmenišką ir motyvuojančią žinutę (iki 3-4 sakinių, nenaudokite sveikinimo kaip "Labas", tiesiog pradėkite mintį). Pastebėkite dėsningumus, pagirkite už pastangas arba patarkite ką lengvai pakeisti (pvz. dėl baltymų ar svorio tendencijos). Rašykite šiltai ir natūraliai lietuvių kalba, lyg rašytumėte tiesiai vartotojui. Grąžinkite TIK pačios žinutės tekstą, nenaudokite jokių įžangų ar etikečių (pvz. nerašykite "Žinutė:").`;
 
         try {
-            const responseText = await this.callGeminiAPI(promptText);
+            let responseText = await this.callGeminiAPI(promptText);
+            
+            // Šaliname galimus AI sugeneruotus prefix'us
+            responseText = responseText.replace(/^(?:\*\*Žinutė:\*\*|\*Žinutė:\*|Žinutė:|Zinute:)\s*/i, '').trim();
+            
             msgEl.innerHTML = responseText;
         } catch (err) {
             console.error("AI įžvalgų klaida:", err);
