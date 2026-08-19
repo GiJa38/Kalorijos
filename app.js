@@ -1519,17 +1519,26 @@ Parašykite 1 trumpą, asmenišką ir motyvuojančią žinutę (iki 3-4 sakinių
         contentEl.innerHTML = `<div class="text-center" style="padding: 30px;"><span class="material-icons-round" style="animation: spin 2s linear infinite; font-size:32px; color:var(--primary); margin-bottom: 10px;">sync</span><br><div style="color:var(--text-muted);">Atliekamas išsamus auditas (7 d.)...</div></div>`;
 
         try {
-            // Gather last 7 days of logs including meals
-            const logsObj = this.data.logs || {};
-            const dates = Object.keys(logsObj).sort((a, b) => new Date(b) - new Date(a)).slice(0, 7);
-            if (dates.length === 0) {
-                contentEl.innerHTML = 'Nėra duomenų analizei.';
+            // Sujungiame istorijos dienas su šiandienos duomenimis
+            let allDays = [];
+            if (this.data.history && this.data.history.length > 0) {
+                allDays = [...this.data.history];
+            }
+            if (this.data.consumedToday && this.data.consumedToday.items && this.data.consumedToday.items.length > 0) {
+                allDays.push(this.data.consumedToday);
+            }
+
+            // Paimame tik paskutines 7 dienas iš visų turimų
+            const recentDays = allDays.slice(-7);
+
+            if (recentDays.length === 0) {
+                contentEl.innerHTML = 'Nėra duomenų analizei. Pridėkite šiandien suvalgytą maistą.';
                 return;
             }
 
-            const historyLog = dates.map(date => {
-                const dayData = logsObj[date];
-                const meals = dayData.meals ? dayData.meals.map(m => {
+            const historyLog = recentDays.map(dayData => {
+                // Skirtingai nei 'logs', istorijoje ir šiandienoje patiekalų masyvas vadinasi 'items'
+                const meals = dayData.items ? dayData.items.map(m => {
                     let laikasStr = "Nenurodyta";
                     if (m.timestamp) {
                         const d = new Date(m.timestamp);
@@ -1548,7 +1557,7 @@ Parašykite 1 trumpą, asmenišką ir motyvuojančią žinutę (iki 3-4 sakinių
                 }) : [];
 
                 return {
-                    data: date,
+                    data: dayData.date || new Date().toISOString().split('T')[0],
                     suvartota_kcal: Math.round(dayData.totalKcal || 0),
                     norma_kcal: Math.round(p.eatBackCalories !== false ? (dayData.tdee || p.tdee) + (dayData.trainingKcal || 0) : (dayData.tdee || p.tdee)),
                     svoris_kg: dayData.weight || "Neregistruota",
